@@ -103,6 +103,12 @@
       background: #0e0e1a;
       box-shadow: 0 2px 20px rgba(0,0,0,0.4);
     }
+
+    #canvas-container.dragover {
+      background: #1a1a3e;
+      outline: 3px dashed #e94560;
+      outline-offset: -8px;
+    }
   </style>
 </head>
 <body>
@@ -196,6 +202,76 @@
       } catch (err) {
         errorEl.textContent = err.message;
         statusEl.textContent = '';
+      }
+    });
+
+    // Drag-and-drop upload
+    async function uploadAndRender(file) {
+      errorEl.textContent = '';
+      statusEl.textContent = 'Uploading\u2026';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorEl.textContent = data.error || 'Upload failed.';
+          statusEl.textContent = '';
+          return;
+        }
+
+        statusEl.textContent = 'Rendering\u2026';
+        const img = new Image();
+        img.onload = () => {
+          currentImg = img;
+          resizeAndDraw();
+          statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
+        };
+        img.onerror = () => {
+          errorEl.textContent = 'Failed to load image.';
+          statusEl.textContent = '';
+        };
+        img.src = data.url;
+      } catch (err) {
+        errorEl.textContent = err.message;
+        statusEl.textContent = '';
+      }
+    }
+
+    let dragCounter = 0;
+
+    container.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      container.classList.add('dragover');
+    });
+
+    container.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        container.classList.remove('dragover');
+      }
+    });
+
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    container.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      container.classList.remove('dragover');
+
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        uploadAndRender(file);
+      } else {
+        errorEl.textContent = 'Please drop an image file.';
       }
     });
   </script>
