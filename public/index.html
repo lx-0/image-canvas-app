@@ -6,11 +6,78 @@
   <title>Image Canvas</title>
   <style>
     body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    canvas { border: 1px solid #ccc; margin-top: 20px; }
+    #upload-form { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+    canvas { border: 1px solid #ccc; }
+    #status { color: #666; font-size: 14px; min-height: 20px; }
+    #error { color: red; font-size: 14px; min-height: 20px; }
   </style>
 </head>
 <body>
   <h1>Image Canvas</h1>
+  <form id="upload-form">
+    <input type="file" id="file-input" accept="image/*" />
+    <button type="submit">Upload</button>
+  </form>
+  <p id="status"></p>
+  <p id="error"></p>
   <canvas id="canvas" width="800" height="600"></canvas>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-input');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
+      statusEl.textContent = '';
+
+      const file = fileInput.files[0];
+      if (!file) {
+        errorEl.textContent = 'Please select a file.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      statusEl.textContent = 'Uploading…';
+
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorEl.textContent = data.error || 'Upload failed.';
+          statusEl.textContent = '';
+          return;
+        }
+
+        statusEl.textContent = 'Rendering image…';
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          const scale = Math.min(canvas.width / img.width, canvas.height / img.height, 1);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          const x = (canvas.width - w) / 2;
+          const y = (canvas.height - h) / 2;
+          ctx.drawImage(img, x, y, w, h);
+          statusEl.textContent = 'Image rendered on canvas.';
+        };
+        img.onerror = () => {
+          errorEl.textContent = 'Failed to load image for rendering.';
+          statusEl.textContent = '';
+        };
+        img.src = data.url;
+      } catch (err) {
+        errorEl.textContent = `Error: ${err.message}`;
+        statusEl.textContent = '';
+      }
+    });
+  </script>
 </body>
 </html>
