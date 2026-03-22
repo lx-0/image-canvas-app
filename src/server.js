@@ -143,6 +143,91 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+app.post('/api/composite', async (req, res) => {
+  if (!anthropic) {
+    return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+  }
+
+  const { baseImage, droppedImage, instructions } = req.body;
+
+  if (!baseImage || !droppedImage) {
+    return res.status(400).json({ error: 'baseImage and droppedImage are required' });
+  }
+
+  function parseDataURL(dataUrl) {
+    const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!match) return null;
+    return { media_type: match[1], data: match[2] };
+  }
+
+  const base = parseDataURL(baseImage);
+  const dropped = parseDataURL(droppedImage);
+
+  if (!base || !dropped) {
+    return res.status(400).json({ error: 'Invalid image data URLs' });
+  }
+
+  const userPrompt = instructions
+    ? `The user wants to composite the second image onto the first with these instructions: "${instructions}"`
+    : 'Composite the second image onto the first. Identify the main subject/object in the second image and place it naturally on the base image.';
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: `You are an image compositing assistant. You receive two images:
+1. The BASE image (first image) - the background/canvas
+2. The DROPPED image (second image) - contains a subject to composite onto the base
+
+Analyze both images and determine the best placement for the main subject of the dropped image onto the base image.
+
+Respond with a JSON block wrapped in <composite>...</composite> tags, followed by a brief explanation.
+
+The JSON must have these fields:
+- x: horizontal position as percentage (0-100) of the base image where the CENTER of the dropped content should go
+- y: vertical position as percentage (0-100) of the base image where the CENTER of the dropped content should go
+- scale: scale factor for the dropped image relative to the base image (e.g., 0.3 means 30% of the base image width)
+- description: brief description of what you identified and where you placed it
+
+Example:
+<composite>{"x": 65, "y": 40, "scale": 0.25, "description": "Placed the cat on the right side of the couch"}</composite>
+I identified a cat in the dropped image and placed it on the couch in the base image, scaled to look natural.`,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: base.media_type, data: base.data } },
+            { type: 'image', source: { type: 'base64', media_type: dropped.media_type, data: dropped.data } },
+            { type: 'text', text: userPrompt },
+          ],
+        },
+      ],
+    });
+
+    const text = response.content
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('');
+
+    let compositeData = null;
+    const cmdMatch = text.match(/<composite>([\s\S]*?)<\/composite>/);
+    if (cmdMatch) {
+      try {
+        compositeData = JSON.parse(cmdMatch[1]);
+      } catch (_e) {
+        // parsing failed
+      }
+    }
+
+    const displayText = text.replace(/<composite>[\s\S]*?<\/composite>\s*/g, '').trim();
+
+    res.json({ response: displayText, composite: compositeData });
+  } catch (err) {
+    console.error('Composite API error:', err.message);
+    res.status(500).json({ error: 'Failed to process composite request' });
+  }
+});
+
 app.use((err, _req, res, _next) => {
   res.status(400).json({ error: err.message });
 });
