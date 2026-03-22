@@ -5,22 +5,122 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Canvas</title>
   <style>
-    body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    #upload-form { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
-    canvas { border: 1px solid #ccc; }
-    #status { color: #666; font-size: 14px; min-height: 20px; }
-    #error { color: red; font-size: 14px; min-height: 20px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e94560;
+      letter-spacing: 0.5px;
+    }
+
+    #upload-form {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    #file-input {
+      font-size: 13px;
+      color: #c0c0c0;
+    }
+
+    #file-input::file-selector-button {
+      background: #0f3460;
+      color: #e0e0e0;
+      border: 1px solid #1a4a7a;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+
+    #file-input::file-selector-button:hover {
+      background: #1a4a7a;
+    }
+
+    button[type="submit"] {
+      background: #e94560;
+      color: #fff;
+      border: none;
+      padding: 7px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    button[type="submit"]:hover {
+      background: #c73652;
+    }
+
+    #feedback {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      font-size: 13px;
+      min-width: 0;
+    }
+
+    #status { color: #8a8a9a; }
+    #error  { color: #e94560; }
+
+    #canvas-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      min-height: 0;
+      background: #12122a;
+    }
+
+    canvas {
+      display: block;
+      border-radius: 4px;
+      background: #0e0e1a;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+    }
   </style>
 </head>
 <body>
-  <h1>Image Canvas</h1>
-  <form id="upload-form">
-    <input type="file" id="file-input" accept="image/*" />
-    <button type="submit">Upload</button>
-  </form>
-  <p id="status"></p>
-  <p id="error"></p>
-  <canvas id="canvas" width="800" height="600"></canvas>
+  <header>
+    <h1>Image Canvas</h1>
+    <form id="upload-form">
+      <input type="file" id="file-input" accept="image/*" />
+      <button type="submit">Upload</button>
+    </form>
+    <div id="feedback">
+      <span id="status"></span>
+      <span id="error"></span>
+    </div>
+  </header>
+
+  <div id="canvas-container">
+    <canvas id="canvas"></canvas>
+  </div>
 
   <script>
     const form = document.getElementById('upload-form');
@@ -29,6 +129,31 @@
     const ctx = canvas.getContext('2d');
     const statusEl = document.getElementById('status');
     const errorEl = document.getElementById('error');
+    const container = document.getElementById('canvas-container');
+
+    let currentImg = null;
+
+    function resizeAndDraw() {
+      const cw = container.clientWidth - 32;
+      const ch = container.clientHeight - 32;
+
+      if (!currentImg) {
+        canvas.width = cw;
+        canvas.height = ch;
+        return;
+      }
+
+      const scale = Math.min(cw / currentImg.width, ch / currentImg.height, 1);
+      const w = Math.round(currentImg.width * scale);
+      const h = Math.round(currentImg.height * scale);
+
+      canvas.width = w;
+      canvas.height = h;
+      ctx.drawImage(currentImg, 0, 0, w, h);
+    }
+
+    window.addEventListener('resize', resizeAndDraw);
+    resizeAndDraw();
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -44,7 +169,7 @@
       const formData = new FormData();
       formData.append('file', file);
 
-      statusEl.textContent = 'Uploading…';
+      statusEl.textContent = 'Uploading\u2026';
 
       try {
         const res = await fetch('/upload', { method: 'POST', body: formData });
@@ -56,25 +181,20 @@
           return;
         }
 
-        statusEl.textContent = 'Rendering image…';
+        statusEl.textContent = 'Rendering\u2026';
         const img = new Image();
         img.onload = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          const scale = Math.min(canvas.width / img.width, canvas.height / img.height, 1);
-          const w = img.width * scale;
-          const h = img.height * scale;
-          const x = (canvas.width - w) / 2;
-          const y = (canvas.height - h) / 2;
-          ctx.drawImage(img, x, y, w, h);
-          statusEl.textContent = 'Image rendered on canvas.';
+          currentImg = img;
+          resizeAndDraw();
+          statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
         };
         img.onerror = () => {
-          errorEl.textContent = 'Failed to load image for rendering.';
+          errorEl.textContent = 'Failed to load image.';
           statusEl.textContent = '';
         };
         img.src = data.url;
       } catch (err) {
-        errorEl.textContent = `Error: ${err.message}`;
+        errorEl.textContent = err.message;
         statusEl.textContent = '';
       }
     });
