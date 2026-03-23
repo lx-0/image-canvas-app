@@ -3,6 +3,8 @@
 require('dotenv').config();
 
 const express = require('express');
+const helmet = require('helmet');
+const compression = require('compression');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 const sharp = require('sharp');
@@ -78,6 +80,10 @@ async function withRetry(fn, requestId, maxAttempts = 3) {
 }
 
 const app = express();
+
+// Production security and performance middleware
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+app.use(compression());
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -155,6 +161,11 @@ app.use((req, res, next) => {
   req.requestId = generateRequestId();
   res.setHeader('X-Request-Id', req.requestId);
   next();
+});
+
+// Health check endpoint
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
 // CORS
@@ -602,6 +613,23 @@ app.use((err, _req, res, _next) => {
   res.status(400).json({ error: err.message });
 });
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`Server running at http://localhost:${config.port}`);
 });
+
+// Graceful shutdown on SIGTERM/SIGINT
+function gracefulShutdown(signal) {
+  console.log(`${signal} received, shutting down gracefully...`);
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+  // Force exit after 10 seconds if connections don't drain
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000).unref();
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    volumes:
+      - uploads:/app/public/uploads
+      - thumbnails:/app/public/thumbnails
+    restart: unless-stopped
+
+volumes:
+  uploads:
+  thumbnails:

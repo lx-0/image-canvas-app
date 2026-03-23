@@ -1,0 +1,9 @@
+node_modules
+.git
+.env
+public/uploads/*
+public/thumbnails/*
+*.md
+.dockerignore
+Dockerfile
+docker-compose.yml
