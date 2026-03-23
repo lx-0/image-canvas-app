@@ -924,6 +924,202 @@
     #delete-confirm-no:hover {
       background: #1a4a7a;
     }
+
+    /* Mobile chat toggle handle */
+    #mobile-chat-handle {
+      display: none;
+    }
+
+    /* ── Responsive: Tablet & Mobile (≤768px) ── */
+    @media (max-width: 768px) {
+      header {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 12px;
+      }
+
+      header h1 {
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+
+      #upload-form {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+      }
+
+      #upload-form button[type="submit"] {
+        padding: 10px 24px;
+        font-size: 15px;
+        min-height: 44px;
+        border-radius: 8px;
+      }
+
+      #file-input {
+        font-size: 14px;
+        min-height: 44px;
+      }
+
+      #file-input::file-selector-button {
+        padding: 10px 16px;
+        font-size: 14px;
+        min-height: 44px;
+      }
+
+      #toolbar {
+        gap: 4px;
+      }
+
+      .toolbar-btn {
+        min-height: 44px;
+        min-width: 44px;
+        justify-content: center;
+        padding: 5px 8px;
+        font-size: 14px;
+      }
+
+      .toolbar-btn .shortcut {
+        display: none;
+      }
+
+      #feedback {
+        order: 4;
+        width: 100%;
+        justify-content: center;
+      }
+
+      /* Stack canvas above chat panel */
+      #main-area {
+        flex-direction: column;
+        position: relative;
+      }
+
+      /* Hide gallery sidebar on mobile */
+      #gallery-sidebar {
+        display: none;
+      }
+
+      #gallery-toggle-btn {
+        display: none !important;
+      }
+
+      /* Canvas takes full width */
+      #canvas-container {
+        flex: 1;
+        min-height: 200px;
+        padding: 8px;
+      }
+
+      /* Chat panel as bottom sheet */
+      #chat-panel {
+        width: 100%;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        max-height: 70vh;
+        min-height: 48px;
+        border-left: none;
+        border-top: 1px solid #0f3460;
+        border-radius: 16px 16px 0 0;
+        z-index: 20;
+        transition: max-height 0.3s ease, min-height 0.3s ease;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      #chat-panel.collapsed {
+        max-height: 48px;
+        min-height: 48px;
+        overflow: hidden;
+      }
+
+      #chat-panel.collapsed #chat-messages,
+      #chat-panel.collapsed #chat-input-area {
+        display: none;
+      }
+
+      /* Mobile chat drag handle */
+      #mobile-chat-handle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        cursor: grab;
+        touch-action: none;
+      }
+
+      #mobile-chat-handle .handle-bar {
+        width: 40px;
+        height: 4px;
+        background: #4a4a6a;
+        border-radius: 2px;
+      }
+
+      #chat-header {
+        padding: 6px 16px 10px;
+        cursor: pointer;
+      }
+
+      #chat-input-area {
+        padding: 8px 12px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+      }
+
+      #chat-input {
+        font-size: 16px; /* Prevents iOS zoom on focus */
+        min-height: 44px;
+      }
+
+      #chat-send {
+        min-height: 44px;
+        min-width: 60px;
+        font-size: 15px;
+      }
+
+      /* Zoom bar adjustments */
+      #zoom-bar {
+        bottom: 56px; /* Above collapsed chat panel */
+      }
+
+      .zoom-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+      }
+
+      /* Export dialog responsive */
+      #export-dialog {
+        width: calc(100vw - 32px);
+        max-width: 340px;
+      }
+
+      /* Delete confirm dialog */
+      #delete-confirm-dialog {
+        width: calc(100vw - 32px);
+        max-width: 280px;
+      }
+    }
+
+    /* ── Extra small: Phone (≤480px) ── */
+    @media (max-width: 480px) {
+      header {
+        padding: 6px 8px;
+      }
+
+      header h1 {
+        font-size: 14px;
+      }
+
+      #canvas-container {
+        padding: 4px;
+      }
+
+      .toolbar-btn {
+        padding: 4px 6px;
+        font-size: 13px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -971,6 +1167,7 @@
     </div>
 
     <div id="chat-panel">
+      <div id="mobile-chat-handle"><span class="handle-bar"></span></div>
       <div id="chat-header">
         <span class="dot"></span>
         AI Assistant
@@ -2644,6 +2841,141 @@
     // Initialize gallery
     loadGalleryState();
     syncGallery();
+
+    // ── Mobile: Responsive Touch Gestures & Chat Panel ──
+    (function() {
+      const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+
+      // ─ Collapsible chat panel (mobile) ─
+      const chatPanel = document.getElementById('chat-panel');
+      const chatHandle = document.getElementById('mobile-chat-handle');
+      const chatHeader = document.getElementById('chat-header');
+
+      // Start collapsed on mobile
+      if (isMobile()) {
+        chatPanel.classList.add('collapsed');
+      }
+
+      // Toggle chat on handle/header tap
+      function toggleChat() {
+        if (!isMobile()) return;
+        chatPanel.classList.toggle('collapsed');
+      }
+
+      chatHandle.addEventListener('click', toggleChat);
+      chatHeader.addEventListener('click', (e) => {
+        if (e.target.id === 'new-chat-btn') return; // Don't toggle when clicking New Chat
+        toggleChat();
+      });
+
+      // Swipe-up to expand / swipe-down to collapse
+      let chatTouchStartY = 0;
+      let chatTouchStartTime = 0;
+
+      chatHandle.addEventListener('touchstart', (e) => {
+        if (!isMobile()) return;
+        chatTouchStartY = e.touches[0].clientY;
+        chatTouchStartTime = Date.now();
+      }, { passive: true });
+
+      chatHandle.addEventListener('touchend', (e) => {
+        if (!isMobile()) return;
+        const deltaY = chatTouchStartY - e.changedTouches[0].clientY;
+        const elapsed = Date.now() - chatTouchStartTime;
+        // Swipe up (positive delta) → expand, swipe down → collapse
+        if (elapsed < 400 && Math.abs(deltaY) > 30) {
+          if (deltaY > 0) {
+            chatPanel.classList.remove('collapsed');
+          } else {
+            chatPanel.classList.add('collapsed');
+          }
+        }
+      }, { passive: true });
+
+      // ─ Pinch-to-zoom & two-finger pan on canvas ─
+      let touchState = { active: false, lastDist: 0, lastCenterX: 0, lastCenterY: 0 };
+
+      function getTouchDist(t1, t2) {
+        const dx = t1.clientX - t2.clientX;
+        const dy = t1.clientY - t2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      function getTouchCenter(t1, t2) {
+        return {
+          x: (t1.clientX + t2.clientX) / 2,
+          y: (t1.clientY + t2.clientY) / 2
+        };
+      }
+
+      container.addEventListener('touchstart', (e) => {
+        if (!currentImg) return;
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const t1 = e.touches[0], t2 = e.touches[1];
+          touchState.active = true;
+          touchState.lastDist = getTouchDist(t1, t2);
+          const c = getTouchCenter(t1, t2);
+          touchState.lastCenterX = c.x;
+          touchState.lastCenterY = c.y;
+        } else if (e.touches.length === 1 && zoomLevel !== 1) {
+          // Single-finger pan when zoomed
+          e.preventDefault();
+          isPanning = true;
+          panStartX = e.touches[0].clientX;
+          panStartY = e.touches[0].clientY;
+          panStartPanX = panX;
+          panStartPanY = panY;
+        }
+      }, { passive: false });
+
+      container.addEventListener('touchmove', (e) => {
+        if (!currentImg) return;
+        if (e.touches.length === 2 && touchState.active) {
+          e.preventDefault();
+          const t1 = e.touches[0], t2 = e.touches[1];
+          const dist = getTouchDist(t1, t2);
+          const center = getTouchCenter(t1, t2);
+
+          // Pinch zoom
+          const scaleFactor = dist / touchState.lastDist;
+          const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel * scaleFactor));
+          zoomToPoint(newZoom, center.x, center.y);
+
+          // Two-finger pan
+          const dx = center.x - touchState.lastCenterX;
+          const dy = center.y - touchState.lastCenterY;
+          panX += dx;
+          panY += dy;
+          applyTransform();
+
+          touchState.lastDist = dist;
+          touchState.lastCenterX = center.x;
+          touchState.lastCenterY = center.y;
+        } else if (e.touches.length === 1 && isPanning) {
+          e.preventDefault();
+          panX = panStartPanX + (e.touches[0].clientX - panStartX);
+          panY = panStartPanY + (e.touches[0].clientY - panStartY);
+          applyTransform();
+        }
+      }, { passive: false });
+
+      container.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+          touchState.active = false;
+        }
+        if (e.touches.length === 0) {
+          isPanning = false;
+        }
+      }, { passive: true });
+
+      // Adjust on orientation/resize change
+      window.addEventListener('resize', () => {
+        if (!isMobile()) {
+          chatPanel.classList.remove('collapsed');
+        }
+      });
+    })();
   </script>
 </body>
 </html>
