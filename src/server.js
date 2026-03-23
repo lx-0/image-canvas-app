@@ -57,6 +57,14 @@ Available commands (return as a JSON array):
 - {"action": "grayscale"} — Convert to grayscale.
 - {"action": "brightness", "value": number} — Adjust brightness (-100 to 100).
 - {"action": "contrast", "value": number} — Adjust contrast (-100 to 100).
+- {"action": "blur", "radius": number} — Apply gaussian blur. Radius controls intensity (1-10, default 3).
+- {"action": "sharpen", "amount": number} — Sharpen image with unsharp mask (0.5-3, default 1).
+- {"action": "sepia"} — Apply warm vintage sepia tone.
+- {"action": "saturation", "value": number} — Adjust color saturation (-100 to 100). Negative desaturates, positive increases vibrancy.
+- {"action": "hue-rotate", "degrees": number} — Shift hue of all colors (0-360 degrees).
+- {"action": "invert"} — Invert/negate all colors.
+- {"action": "vignette", "strength": number} — Darken edges for a vignette effect (0-100, default 50).
+- {"action": "shadows-highlights", "shadows": number, "highlights": number} — Adjust shadows and highlights independently (-100 to 100 each).
 
 Example response for "rotate 90 degrees and add hello text":
 <commands>[{"action":"rotate","degrees":90},{"action":"addText","text":"Hello","x":50,"y":50,"fontSize":32,"color":"white"}]</commands>
