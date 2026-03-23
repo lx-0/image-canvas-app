@@ -569,6 +569,125 @@
       0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
       30% { transform: translateY(-4px); opacity: 1; }
     }
+
+    /* Command preview card */
+    .cmd-preview {
+      align-self: flex-start;
+      background: #1a2744;
+      border: 1px solid #2a4a7a;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin: 4px 0;
+      max-width: 85%;
+      font-size: 13px;
+      color: #d0d0e0;
+    }
+
+    .cmd-preview-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 12px;
+      color: #8aa0c0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .cmd-preview-header .icon {
+      font-size: 14px;
+    }
+
+    .cmd-preview-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 10px 0;
+    }
+
+    .cmd-preview-list li {
+      padding: 4px 8px;
+      margin: 3px 0;
+      background: #0e1a2e;
+      border-radius: 6px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cmd-preview-list li .cmd-icon {
+      color: #e94560;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .cmd-preview-list li.non-destructive .cmd-icon {
+      color: #4ecdc4;
+    }
+
+    .cmd-preview-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .cmd-preview-actions button {
+      flex: 1;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .cmd-btn-apply {
+      background: #e94560;
+      color: #fff;
+    }
+
+    .cmd-btn-apply:hover {
+      background: #d63a54;
+    }
+
+    .cmd-btn-cancel {
+      background: #2a3a5a;
+      color: #a0b0d0;
+    }
+
+    .cmd-btn-cancel:hover {
+      background: #3a4a6a;
+    }
+
+    .cmd-badge.auto-applied {
+      background: #4ecdc4;
+    }
+
+    .cmd-preview.resolved {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .cmd-preview.resolved .cmd-preview-actions {
+      display: none;
+    }
+
+    .cmd-preview-status {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 6px;
+    }
+
+    .cmd-preview-status.applied {
+      color: #4ecdc4;
+    }
+
+    .cmd-preview-status.cancelled {
+      color: #6a6a8a;
+    }
   </style>
 </head>
 <body>
@@ -1268,6 +1387,126 @@
       }
     }
 
+    // Command classification and preview
+    const DESTRUCTIVE_ACTIONS = new Set(['crop', 'resize', 'rotate', 'flip']);
+
+    function isDestructiveCommand(cmd) {
+      return DESTRUCTIVE_ACTIONS.has(cmd.action);
+    }
+
+    function hasDestructiveCommands(commands) {
+      return commands.some(isDestructiveCommand);
+    }
+
+    function summarizeCommand(cmd) {
+      switch (cmd.action) {
+        case 'crop':
+          return `Crop to ${cmd.width}%×${cmd.height}% at (${cmd.x}%, ${cmd.y}%)`;
+        case 'resize':
+          if (cmd.scale) return `Resize to ${Math.round(cmd.scale * 100)}%`;
+          return `Resize to ${cmd.width}×${cmd.height}px`;
+        case 'rotate':
+          return `Rotate ${cmd.degrees}°`;
+        case 'flip':
+          return `Flip ${cmd.direction || 'horizontal'}`;
+        case 'brightness':
+          return `Adjust brightness ${cmd.value > 0 ? '+' : ''}${cmd.value}%`;
+        case 'contrast':
+          return `Adjust contrast ${cmd.value > 0 ? '+' : ''}${cmd.value}%`;
+        case 'grayscale':
+          return 'Convert to grayscale';
+        case 'addText':
+          return `Add text: "${cmd.text}"`;
+        default:
+          return cmd.action;
+      }
+    }
+
+    function showCommandPreview(commands, messageDiv) {
+      return new Promise((resolve) => {
+        const needsConfirmation = hasDestructiveCommands(commands);
+
+        if (!needsConfirmation) {
+          // Non-destructive: auto-apply with undo badge
+          executeCommands(commands);
+          const badge = document.createElement('span');
+          badge.className = 'cmd-badge auto-applied';
+          badge.textContent = 'AUTO-APPLIED';
+          messageDiv.insertBefore(document.createElement('br'), messageDiv.firstChild);
+          messageDiv.insertBefore(badge, messageDiv.firstChild);
+          resolve(true);
+          return;
+        }
+
+        // Destructive: show preview card
+        const card = document.createElement('div');
+        card.className = 'cmd-preview';
+
+        const header = document.createElement('div');
+        header.className = 'cmd-preview-header';
+        header.innerHTML = '<span class="icon">⚡</span> Commands to apply';
+        card.appendChild(header);
+
+        const list = document.createElement('ul');
+        list.className = 'cmd-preview-list';
+        for (const cmd of commands) {
+          const li = document.createElement('li');
+          if (!isDestructiveCommand(cmd)) li.className = 'non-destructive';
+          const icon = document.createElement('span');
+          icon.className = 'cmd-icon';
+          icon.textContent = isDestructiveCommand(cmd) ? '⚠' : '✓';
+          li.appendChild(icon);
+          li.appendChild(document.createTextNode(summarizeCommand(cmd)));
+          list.appendChild(li);
+        }
+        card.appendChild(list);
+
+        const actions = document.createElement('div');
+        actions.className = 'cmd-preview-actions';
+
+        const applyBtn = document.createElement('button');
+        applyBtn.className = 'cmd-btn-apply';
+        applyBtn.textContent = 'Apply';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'cmd-btn-cancel';
+        cancelBtn.textContent = 'Cancel';
+
+        actions.appendChild(applyBtn);
+        actions.appendChild(cancelBtn);
+        card.appendChild(actions);
+
+        chatMessages.appendChild(card);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        applyBtn.addEventListener('click', () => {
+          executeCommands(commands);
+          card.classList.add('resolved');
+          const status = document.createElement('div');
+          status.className = 'cmd-preview-status applied';
+          status.textContent = '✓ Applied';
+          card.appendChild(status);
+          const badge = document.createElement('span');
+          badge.className = 'cmd-badge';
+          badge.textContent = 'APPLIED';
+          messageDiv.insertBefore(document.createElement('br'), messageDiv.firstChild);
+          messageDiv.insertBefore(badge, messageDiv.firstChild);
+          setChatEnabled(true);
+          resolve(true);
+        });
+
+        cancelBtn.addEventListener('click', () => {
+          card.classList.add('resolved');
+          const status = document.createElement('div');
+          status.className = 'cmd-preview-status cancelled';
+          status.textContent = '✗ Cancelled';
+          card.appendChild(status);
+          setChatEnabled(true);
+          resolve(false);
+        });
+      });
+    }
+
     // Canvas manipulation commands
     function executeCommands(commands) {
       if (!currentImg || !commands || !Array.isArray(commands)) return;
@@ -1617,12 +1856,13 @@
           saveConversation();
 
           if (doneData.commands && doneData.commands.length > 0) {
-            executeCommands(doneData.commands);
-            const badge = document.createElement('span');
-            badge.className = 'cmd-badge';
-            badge.textContent = 'APPLIED';
-            div.insertBefore(document.createElement('br'), div.firstChild);
-            div.insertBefore(badge, div.firstChild);
+            if (hasDestructiveCommands(doneData.commands)) {
+              // Destructive: show preview, keep chat disabled until user decides
+              showCommandPreview(doneData.commands, div);
+              return; // skip setChatEnabled(true) at the end
+            }
+            // Non-destructive: auto-apply
+            showCommandPreview(doneData.commands, div);
           }
         } else {
           // Stream ended without done event — use what we have
@@ -1657,11 +1897,14 @@
           saveConversation();
 
           removeTypingIndicator();
+          addChatMessage('assistant', responseText, false);
           if (data.commands && data.commands.length > 0) {
-            executeCommands(data.commands);
-            addChatMessage('assistant', responseText, true);
-          } else {
-            addChatMessage('assistant', responseText, false);
+            const lastMsg = chatMessages.lastElementChild;
+            if (hasDestructiveCommands(data.commands)) {
+              showCommandPreview(data.commands, lastMsg);
+              return; // keep chat disabled until user decides
+            }
+            showCommandPreview(data.commands, lastMsg);
           }
         } catch (fallbackErr) {
           removeTypingIndicator();
