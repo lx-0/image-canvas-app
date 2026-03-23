@@ -248,6 +248,7 @@
       justify-content: center;
       padding: 16px;
       min-height: 0;
+      position: relative;
       background: #12122a;
     }
 
@@ -397,6 +398,11 @@
       cursor: not-allowed;
     }
 
+    #chat-input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     #chat-messages::-webkit-scrollbar {
       width: 6px;
     }
@@ -408,6 +414,97 @@
     #chat-messages::-webkit-scrollbar-thumb {
       background: #2a2a4a;
       border-radius: 3px;
+    }
+
+    /* Upload progress bar */
+    #upload-progress {
+      display: none;
+      width: 120px;
+      height: 6px;
+      background: #0e0e1a;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    #upload-progress.visible {
+      display: block;
+    }
+
+    #upload-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #e94560;
+      border-radius: 3px;
+      transition: width 0.15s ease;
+    }
+
+    /* Canvas overlay spinner */
+    #canvas-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 10, 26, 0.7);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      border-radius: 4px;
+      z-index: 10;
+    }
+
+    #canvas-overlay.visible {
+      display: flex;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid #1a4a7a;
+      border-top-color: #e94560;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #canvas-overlay-text {
+      color: #c0c0d0;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    /* Chat typing indicator */
+    .typing-indicator {
+      display: flex;
+      gap: 4px;
+      padding: 10px 14px;
+      align-self: flex-start;
+      background: #1e2d4a;
+      border-radius: 10px;
+      border-bottom-left-radius: 3px;
+    }
+
+    .typing-indicator span {
+      width: 6px;
+      height: 6px;
+      background: #6a6a8a;
+      border-radius: 50%;
+      animation: typingBounce 1.2s ease-in-out infinite;
+    }
+
+    .typing-indicator span:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    .typing-indicator span:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-4px); opacity: 1; }
     }
   </style>
 </head>
@@ -425,6 +522,7 @@
     </div>
     <div id="feedback">
       <span id="status"></span>
+      <div id="upload-progress"><div id="upload-progress-bar"></div></div>
       <span id="error"></span>
     </div>
   </header>
@@ -432,6 +530,10 @@
   <div id="main-area">
     <div id="canvas-container">
       <canvas id="canvas"></canvas>
+      <div id="canvas-overlay">
+        <div class="spinner"></div>
+        <span id="canvas-overlay-text">Processing…</span>
+      </div>
     </div>
 
     <div id="chat-panel">
@@ -492,6 +594,82 @@
     const undoBtn = document.getElementById('undo-btn');
     const redoBtn = document.getElementById('redo-btn');
     const saveBtn = document.getElementById('save-btn');
+
+    // Loading indicator elements
+    const uploadProgress = document.getElementById('upload-progress');
+    const uploadProgressBar = document.getElementById('upload-progress-bar');
+    const canvasOverlay = document.getElementById('canvas-overlay');
+    const canvasOverlayText = document.getElementById('canvas-overlay-text');
+
+    function showUploadProgress(pct) {
+      uploadProgress.classList.add('visible');
+      uploadProgressBar.style.width = pct + '%';
+    }
+
+    function hideUploadProgress() {
+      uploadProgress.classList.remove('visible');
+      uploadProgressBar.style.width = '0%';
+    }
+
+    function showCanvasOverlay(text) {
+      canvasOverlayText.textContent = text || 'Processing…';
+      canvasOverlay.classList.add('visible');
+    }
+
+    function hideCanvasOverlay() {
+      canvasOverlay.classList.remove('visible');
+    }
+
+    function addTypingIndicator() {
+      const div = document.createElement('div');
+      div.className = 'typing-indicator';
+      div.id = 'typing-indicator';
+      div.innerHTML = '<span></span><span></span><span></span>';
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return div;
+    }
+
+    function removeTypingIndicator() {
+      const el = document.getElementById('typing-indicator');
+      if (el) el.remove();
+    }
+
+    function uploadWithProgress(formData) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload');
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            showUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        });
+        xhr.addEventListener('load', () => {
+          hideUploadProgress();
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(data);
+            } else {
+              reject(new Error(data.error || 'Upload failed.'));
+            }
+          } catch (_e) {
+            reject(new Error('Upload failed.'));
+          }
+        });
+        xhr.addEventListener('error', () => {
+          hideUploadProgress();
+          reject(new Error('Upload failed.'));
+        });
+        xhr.send(formData);
+      });
+    }
+
+    function setChatEnabled(enabled) {
+      chatSend.disabled = !enabled;
+      chatInput.disabled = !enabled;
+      if (enabled) chatInput.focus();
+    }
 
     // Export dialog elements
     const exportOverlay = document.getElementById('export-dialog-overlay');
@@ -595,16 +773,10 @@
       formData.append('file', file);
 
       statusEl.textContent = 'Uploading\u2026';
+      showUploadProgress(0);
 
       try {
-        const res = await fetch('/upload', { method: 'POST', body: formData });
-        const data = await res.json();
-
-        if (!res.ok) {
-          errorEl.textContent = data.error || 'Upload failed.';
-          statusEl.textContent = '';
-          return;
-        }
+        const data = await uploadWithProgress(formData);
 
         statusEl.textContent = 'Rendering\u2026';
         const img = new Image();
@@ -623,6 +795,7 @@
       } catch (err) {
         errorEl.textContent = err.message;
         statusEl.textContent = '';
+        hideUploadProgress();
       }
     });
 
@@ -630,19 +803,13 @@
     async function uploadAndRender(file) {
       errorEl.textContent = '';
       statusEl.textContent = 'Uploading\u2026';
+      showUploadProgress(0);
 
       const formData = new FormData();
       formData.append('file', file);
 
       try {
-        const res = await fetch('/upload', { method: 'POST', body: formData });
-        const data = await res.json();
-
-        if (!res.ok) {
-          errorEl.textContent = data.error || 'Upload failed.';
-          statusEl.textContent = '';
-          return;
-        }
+        const data = await uploadWithProgress(formData);
 
         statusEl.textContent = 'Rendering\u2026';
         const img = new Image();
@@ -661,6 +828,7 @@
       } catch (err) {
         errorEl.textContent = err.message;
         statusEl.textContent = '';
+        hideUploadProgress();
       }
     }
 
@@ -729,6 +897,7 @@
     async function compositeImages(droppedFile, instructions) {
       errorEl.textContent = '';
       statusEl.textContent = 'AI compositing…';
+      showCanvasOverlay('Processing…');
       addSystemMessage('Analyzing images for compositing…');
 
       try {
@@ -749,6 +918,7 @@
         if (!res.ok) {
           errorEl.textContent = data.error || 'Composite request failed.';
           statusEl.textContent = '';
+          hideCanvasOverlay();
           return;
         }
 
@@ -759,9 +929,11 @@
           addSystemMessage(data.response || 'AI could not determine placement.');
           statusEl.textContent = '';
         }
+        hideCanvasOverlay();
       } catch (err) {
         errorEl.textContent = 'Compositing error: ' + err.message;
         statusEl.textContent = '';
+        hideCanvasOverlay();
       }
     }
 
@@ -1117,7 +1289,8 @@
 
       addChatMessage('user', text);
       chatInput.value = '';
-      chatSend.disabled = true;
+      setChatEnabled(false);
+      addTypingIndicator();
 
       conversationHistory.push({ role: 'user', content: text });
 
@@ -1138,6 +1311,7 @@
           throw new Error('Stream endpoint returned ' + res.status);
         }
 
+        removeTypingIndicator();
         const { div, textNode } = addStreamingMessage();
         let streamedText = '';
         let doneData = null;
@@ -1191,6 +1365,8 @@
         }
       } catch (streamErr) {
         // Fallback to non-streaming endpoint
+        removeTypingIndicator();
+        addTypingIndicator();
         try {
           const res = await fetch('/api/chat', {
             method: 'POST',
@@ -1201,15 +1377,17 @@
           const data = await res.json();
 
           if (!res.ok) {
+            removeTypingIndicator();
             addSystemMessage(data.error || 'Chat request failed.');
             conversationHistory.pop();
-            chatSend.disabled = false;
+            setChatEnabled(true);
             return;
           }
 
           const responseText = data.response || '(no response)';
           conversationHistory.push({ role: 'assistant', content: responseText });
 
+          removeTypingIndicator();
           if (data.commands && data.commands.length > 0) {
             executeCommands(data.commands);
             addChatMessage('assistant', responseText, true);
@@ -1217,13 +1395,13 @@
             addChatMessage('assistant', responseText, false);
           }
         } catch (fallbackErr) {
+          removeTypingIndicator();
           addSystemMessage('Error: ' + fallbackErr.message);
           conversationHistory.pop();
         }
       }
 
-      chatSend.disabled = false;
-      chatInput.focus();
+      setChatEnabled(true);
     }
 
     chatSend.addEventListener('click', sendMessage);
