@@ -1,17 +1,29 @@
 'use strict';
 
+require('dotenv').config();
+
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const Anthropic = require('@anthropic-ai/sdk');
 
+// Configuration with defaults
+const config = {
+  port: parseInt(process.env.PORT, 10) || 3000,
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+  uploadDir: process.env.UPLOAD_DIR || 'public/uploads',
+  maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024,
+  corsOrigin: process.env.CORS_ORIGIN || '*',
+};
+
 const app = express();
-const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-const uploadsDir = path.join(__dirname, '../public/uploads');
+const uploadsDir = path.isAbsolute(config.uploadDir)
+  ? config.uploadDir
+  : path.join(__dirname, '..', config.uploadDir);
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -33,11 +45,11 @@ const upload = multer({
       cb(new Error('Only image files are allowed'));
     }
   },
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: config.maxFileSize },
 });
 
 let anthropic = null;
-if (process.env.ANTHROPIC_API_KEY) {
+if (config.anthropicApiKey) {
   anthropic = new Anthropic();
 } else {
   console.warn('ANTHROPIC_API_KEY not set — /api/chat will return 503 until configured');
@@ -71,6 +83,14 @@ Example response for "rotate 90 degrees and add hello text":
 Rotated the image 90° clockwise and added "Hello" text in the center.
 
 If the user asks a general question or something that doesn't require canvas manipulation, just respond normally without commands. Always be concise.`;
+
+// CORS
+app.use((_req, res, next) => {
+  res.header('Access-Control-Allow-Origin', config.corsOrigin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
 
 app.use(express.static(path.join(__dirname, '../public')));
 
@@ -358,6 +378,6 @@ app.use((err, _req, res, _next) => {
   res.status(400).json({ error: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+app.listen(config.port, () => {
+  console.log(`Server running at http://localhost:${config.port}`);
 });
