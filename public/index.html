@@ -340,6 +340,22 @@
       background: #10b981;
     }
 
+    #new-chat-btn {
+      margin-left: auto;
+      background: transparent;
+      color: #a0aec0;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    #new-chat-btn:hover {
+      background: #0f3460;
+      color: #e94560;
+    }
+
     #chat-messages {
       flex: 1;
       overflow-y: auto;
@@ -593,6 +609,7 @@
       <div id="chat-header">
         <span class="dot"></span>
         AI Assistant
+        <button id="new-chat-btn" title="Clear conversation and start fresh">New Chat</button>
       </div>
       <div id="chat-messages">
         <div class="chat-msg system">Upload an image, then ask me to edit it. I can crop, resize, rotate, add text, flip, adjust brightness/contrast, and more.</div>
@@ -735,7 +752,74 @@
     const exportDownloadBtn = document.getElementById('export-download-btn');
 
     let currentImg = null;
+    let currentImageKey = null; // upload URL used as localStorage key for chat sessions
     let conversationHistory = [];
+
+    // --- localStorage chat persistence ---
+    const CHAT_STORAGE_PREFIX = 'imgchat_';
+    const MAX_STORED_MESSAGES = 200;
+
+    function chatStorageKey(imageKey) {
+      return CHAT_STORAGE_PREFIX + imageKey;
+    }
+
+    function saveConversation() {
+      if (!currentImageKey) return;
+      const data = { messages: conversationHistory };
+      try {
+        localStorage.setItem(chatStorageKey(currentImageKey), JSON.stringify(data));
+      } catch (e) {
+        // Quota exceeded — trim oldest messages and retry
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+          trimAndRetrySave();
+        }
+      }
+    }
+
+    function trimAndRetrySave() {
+      if (!currentImageKey) return;
+      // Remove half the oldest messages to free space
+      const trimCount = Math.max(1, Math.floor(conversationHistory.length / 2));
+      conversationHistory.splice(0, trimCount);
+      try {
+        localStorage.setItem(chatStorageKey(currentImageKey), JSON.stringify({ messages: conversationHistory }));
+      } catch (_e) {
+        // Still failing — clear this conversation entirely
+        localStorage.removeItem(chatStorageKey(currentImageKey));
+      }
+    }
+
+    function loadConversation(imageKey) {
+      try {
+        const raw = localStorage.getItem(chatStorageKey(imageKey));
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        return data.messages || null;
+      } catch (_e) {
+        return null;
+      }
+    }
+
+    function clearConversation() {
+      if (currentImageKey) {
+        localStorage.removeItem(chatStorageKey(currentImageKey));
+      }
+      conversationHistory = [];
+      // Clear chat UI and show default message
+      chatMessages.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'chat-msg system';
+      div.textContent = 'Upload an image, then ask me to edit it. I can crop, resize, rotate, add text, flip, adjust brightness/contrast, and more.';
+      chatMessages.appendChild(div);
+    }
+
+    function restoreConversationUI(messages) {
+      // Clear existing messages
+      chatMessages.innerHTML = '';
+      for (const msg of messages) {
+        addChatMessage(msg.role, msg.content, false);
+      }
+    }
 
     // Undo/Redo history stack
     const MAX_HISTORY = 20;
@@ -940,11 +1024,22 @@
         const img = new Image();
         img.onload = () => {
           currentImg = img;
+          currentImageKey = data.url;
           resetZoomPan();
           resizeAndDraw();
           saveState();
           statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
-          addSystemMessage('Image loaded. You can now ask me to edit it.');
+          // Restore existing conversation for this image, or start fresh
+          const saved = loadConversation(data.url);
+          if (saved && saved.length > 0) {
+            conversationHistory = saved;
+            restoreConversationUI(saved);
+            addSystemMessage('Previous conversation restored.');
+          } else {
+            conversationHistory = [];
+            chatMessages.innerHTML = '';
+            addSystemMessage('Image loaded. You can now ask me to edit it.');
+          }
         };
         img.onerror = () => {
           errorEl.textContent = 'Failed to load image.';
@@ -974,11 +1069,21 @@
         const img = new Image();
         img.onload = () => {
           currentImg = img;
+          currentImageKey = data.url;
           resetZoomPan();
           resizeAndDraw();
           saveState();
           statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
-          addSystemMessage('Image loaded. You can now ask me to edit it.');
+          const saved = loadConversation(data.url);
+          if (saved && saved.length > 0) {
+            conversationHistory = saved;
+            restoreConversationUI(saved);
+            addSystemMessage('Previous conversation restored.');
+          } else {
+            conversationHistory = [];
+            chatMessages.innerHTML = '';
+            addSystemMessage('Image loaded. You can now ask me to edit it.');
+          }
         };
         img.onerror = () => {
           errorEl.textContent = 'Failed to load image.';
@@ -1453,6 +1558,7 @@
       addTypingIndicator();
 
       conversationHistory.push({ role: 'user', content: text });
+      saveConversation();
 
       const body = {
         messages: conversationHistory,
@@ -1508,6 +1614,7 @@
           const responseText = doneData.response || '(no response)';
           textNode.textContent = responseText;
           conversationHistory.push({ role: 'assistant', content: responseText });
+          saveConversation();
 
           if (doneData.commands && doneData.commands.length > 0) {
             executeCommands(doneData.commands);
@@ -1522,6 +1629,7 @@
           const display = streamedText.replace(/<commands>[\s\S]*?<\/commands>\s*/g, '').trim();
           textNode.textContent = display || '(no response)';
           conversationHistory.push({ role: 'assistant', content: display || '' });
+          saveConversation();
         }
       } catch (streamErr) {
         // Fallback to non-streaming endpoint
@@ -1546,6 +1654,7 @@
 
           const responseText = data.response || '(no response)';
           conversationHistory.push({ role: 'assistant', content: responseText });
+          saveConversation();
 
           removeTypingIndicator();
           if (data.commands && data.commands.length > 0) {
@@ -1565,6 +1674,10 @@
     }
 
     chatSend.addEventListener('click', sendMessage);
+
+    document.getElementById('new-chat-btn').addEventListener('click', () => {
+      clearConversation();
+    });
 
     chatInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
