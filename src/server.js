@@ -66,6 +66,44 @@ If the user asks a general question or something that doesn't require canvas man
 
 app.use(express.static(path.join(__dirname, '../public')));
 
+// List uploaded images
+app.get('/api/images', (_req, res) => {
+  try {
+    const files = fs.readdirSync(uploadsDir)
+      .filter((f) => /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(f))
+      .map((f) => {
+        const stat = fs.statSync(path.join(uploadsDir, f));
+        return { url: `/uploads/${f}`, name: f, size: stat.size, createdAt: stat.birthtimeMs || stat.ctimeMs };
+      })
+      .sort((a, b) => b.createdAt - a.createdAt);
+    res.json({ images: files });
+  } catch (err) {
+    console.error('List images error:', err.message);
+    res.json({ images: [] });
+  }
+});
+
+// Delete an uploaded image
+app.delete('/api/images/:filename', (req, res) => {
+  const filename = req.params.filename;
+  // Prevent path traversal
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+  const filePath = path.join(uploadsDir, filename);
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'File not found' });
+    }
+  } catch (err) {
+    console.error('Delete image error:', err.message);
+    res.status(500).json({ error: 'Failed to delete image' });
+  }
+});
+
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
