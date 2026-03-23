@@ -143,6 +143,86 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+app.post('/api/chat/stream', async (req, res) => {
+  if (!anthropic) {
+    return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+  }
+
+  const { messages, imageData } = req.body;
+
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'messages array is required' });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+
+  let closed = false;
+  req.on('close', () => {
+    closed = true;
+  });
+
+  function sendEvent(event, data) {
+    if (closed) return;
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  }
+
+  try {
+    const apiMessages = messages.map((msg, i) => {
+      const content = [];
+      if (msg.role === 'user' && i === messages.length - 1 && imageData) {
+        const match = imageData.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (match) {
+          content.push({
+            type: 'image',
+            source: { type: 'base64', media_type: match[1], data: match[2] },
+          });
+        }
+      }
+      content.push({ type: 'text', text: msg.content });
+      return { role: msg.role, content };
+    });
+
+    const stream = anthropic.messages.stream({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: apiMessages,
+    });
+
+    let fullText = '';
+
+    stream.on('text', (textDelta) => {
+      fullText += textDelta;
+      sendEvent('delta', { text: textDelta });
+    });
+
+    const finalMessage = await stream.finalMessage();
+
+    // Extract commands from the full response
+    let commands = null;
+    const cmdMatch = fullText.match(/<commands>([\s\S]*?)<\/commands>/);
+    if (cmdMatch) {
+      try {
+        commands = JSON.parse(cmdMatch[1]);
+      } catch (_e) {
+        // If command parsing fails, skip
+      }
+    }
+
+    const displayText = fullText.replace(/<commands>[\s\S]*?<\/commands>\s*/g, '').trim();
+    sendEvent('done', { response: displayText, commands });
+    res.end();
+  } catch (err) {
+    console.error('Chat stream error:', err.message);
+    sendEvent('error', { error: 'Failed to process chat request' });
+    res.end();
+  }
+});
+
 app.post('/api/composite', async (req, res) => {
   if (!anthropic) {
     return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });

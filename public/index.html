@@ -1078,7 +1078,39 @@
 
     saveBtn.addEventListener('click', openExportDialog);
 
-    // Send chat message
+    // Create a streaming chat message element that updates incrementally
+    function addStreamingMessage() {
+      const div = document.createElement('div');
+      div.className = 'chat-msg assistant';
+      const textNode = document.createTextNode('');
+      div.appendChild(textNode);
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return { div, textNode };
+    }
+
+    // Parse SSE lines from a text chunk, handling partial lines across chunks
+    function createSSEParser(onEvent) {
+      let buffer = '';
+      return function feed(chunk) {
+        buffer += chunk;
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete last line
+        let eventType = null;
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7);
+          } else if (line.startsWith('data: ') && eventType) {
+            try {
+              onEvent(eventType, JSON.parse(line.slice(6)));
+            } catch (_e) { /* skip malformed data */ }
+            eventType = null;
+          }
+        }
+      };
+    }
+
+    // Send chat message with streaming
     async function sendMessage() {
       const text = chatInput.value.trim();
       if (!text) return;
@@ -1089,39 +1121,105 @@
 
       conversationHistory.push({ role: 'user', content: text });
 
-      try {
-        const body = {
-          messages: conversationHistory,
-          imageData: getCanvasDataURL(),
-        };
+      const body = {
+        messages: conversationHistory,
+        imageData: getCanvasDataURL(),
+      };
 
-        const res = await fetch('/api/chat', {
+      // Try streaming endpoint first
+      try {
+        const res = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
 
-        const data = await res.json();
-
         if (!res.ok) {
-          addSystemMessage(data.error || 'Chat request failed.');
-          conversationHistory.pop();
-          chatSend.disabled = false;
-          return;
+          throw new Error('Stream endpoint returned ' + res.status);
         }
 
-        const responseText = data.response || '(no response)';
-        conversationHistory.push({ role: 'assistant', content: responseText });
+        const { div, textNode } = addStreamingMessage();
+        let streamedText = '';
+        let doneData = null;
 
-        if (data.commands && data.commands.length > 0) {
-          executeCommands(data.commands);
-          addChatMessage('assistant', responseText, true);
+        await new Promise((resolve, reject) => {
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+
+          const parser = createSSEParser((event, data) => {
+            if (event === 'delta') {
+              streamedText += data.text;
+              // Strip command tags from display during streaming
+              const display = streamedText.replace(/<commands>[\s\S]*?(<\/commands>)?/g, '').trim();
+              textNode.textContent = display;
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+            } else if (event === 'done') {
+              doneData = data;
+            } else if (event === 'error') {
+              reject(new Error(data.error || 'Stream error'));
+            }
+          });
+
+          function pump() {
+            reader.read().then(({ done, value }) => {
+              if (done) return resolve();
+              parser(decoder.decode(value, { stream: true }));
+              pump();
+            }).catch(reject);
+          }
+          pump();
+        });
+
+        if (doneData) {
+          const responseText = doneData.response || '(no response)';
+          textNode.textContent = responseText;
+          conversationHistory.push({ role: 'assistant', content: responseText });
+
+          if (doneData.commands && doneData.commands.length > 0) {
+            executeCommands(doneData.commands);
+            const badge = document.createElement('span');
+            badge.className = 'cmd-badge';
+            badge.textContent = 'APPLIED';
+            div.insertBefore(document.createElement('br'), div.firstChild);
+            div.insertBefore(badge, div.firstChild);
+          }
         } else {
-          addChatMessage('assistant', responseText, false);
+          // Stream ended without done event — use what we have
+          const display = streamedText.replace(/<commands>[\s\S]*?<\/commands>\s*/g, '').trim();
+          textNode.textContent = display || '(no response)';
+          conversationHistory.push({ role: 'assistant', content: display || '' });
         }
-      } catch (err) {
-        addSystemMessage('Error: ' + err.message);
-        conversationHistory.pop();
+      } catch (streamErr) {
+        // Fallback to non-streaming endpoint
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            addSystemMessage(data.error || 'Chat request failed.');
+            conversationHistory.pop();
+            chatSend.disabled = false;
+            return;
+          }
+
+          const responseText = data.response || '(no response)';
+          conversationHistory.push({ role: 'assistant', content: responseText });
+
+          if (data.commands && data.commands.length > 0) {
+            executeCommands(data.commands);
+            addChatMessage('assistant', responseText, true);
+          } else {
+            addChatMessage('assistant', responseText, false);
+          }
+        } catch (fallbackErr) {
+          addSystemMessage('Error: ' + fallbackErr.message);
+          conversationHistory.pop();
+        }
       }
 
       chatSend.disabled = false;
