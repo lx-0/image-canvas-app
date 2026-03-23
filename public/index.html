@@ -110,6 +110,120 @@
       opacity: 0.6;
     }
 
+    /* Export dialog */
+    #export-dialog-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #export-dialog-overlay.visible {
+      display: flex;
+    }
+
+    #export-dialog {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 10px;
+      padding: 24px;
+      width: 340px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    #export-dialog h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e94560;
+      margin-bottom: 16px;
+    }
+
+    .export-field {
+      margin-bottom: 14px;
+    }
+
+    .export-field label {
+      display: block;
+      font-size: 12px;
+      color: #8a8a9a;
+      margin-bottom: 4px;
+    }
+
+    .export-field input[type="text"],
+    .export-field select {
+      width: 100%;
+      background: #0e0e1a;
+      border: 1px solid #1a4a7a;
+      color: #e0e0e0;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .export-field input:focus,
+    .export-field select:focus {
+      border-color: #e94560;
+    }
+
+    .export-field .range-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .export-field input[type="range"] {
+      flex: 1;
+      accent-color: #e94560;
+    }
+
+    .export-field .range-value {
+      font-size: 13px;
+      color: #e0e0e0;
+      min-width: 32px;
+      text-align: right;
+    }
+
+    #export-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 18px;
+    }
+
+    #export-actions button {
+      padding: 7px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s;
+    }
+
+    #export-cancel-btn {
+      background: #0f3460;
+      color: #e0e0e0;
+      border: 1px solid #1a4a7a;
+    }
+
+    #export-cancel-btn:hover {
+      background: #1a4a7a;
+    }
+
+    #export-download-btn {
+      background: #e94560;
+      color: #fff;
+    }
+
+    #export-download-btn:hover {
+      background: #c73652;
+    }
+
     #feedback {
       display: flex;
       gap: 16px;
@@ -307,6 +421,7 @@
     <div id="toolbar">
       <button id="undo-btn" class="toolbar-btn" disabled title="Undo (Ctrl+Z)">↩ Undo <span class="shortcut">Ctrl+Z</span></button>
       <button id="redo-btn" class="toolbar-btn" disabled title="Redo (Ctrl+Y)">↪ Redo <span class="shortcut">Ctrl+Y</span></button>
+      <button id="save-btn" class="toolbar-btn" disabled title="Save/Download (Ctrl+S)">⬇ Save <span class="shortcut">Ctrl+S</span></button>
     </div>
     <div id="feedback">
       <span id="status"></span>
@@ -334,6 +449,34 @@
     </div>
   </div>
 
+  <div id="export-dialog-overlay">
+    <div id="export-dialog">
+      <h2>Export Image</h2>
+      <div class="export-field">
+        <label for="export-filename">Filename</label>
+        <input type="text" id="export-filename" />
+      </div>
+      <div class="export-field">
+        <label for="export-format">Format</label>
+        <select id="export-format">
+          <option value="png">PNG (lossless)</option>
+          <option value="jpeg">JPEG</option>
+        </select>
+      </div>
+      <div class="export-field" id="quality-field" style="display:none;">
+        <label for="export-quality">JPEG Quality</label>
+        <div class="range-row">
+          <input type="range" id="export-quality" min="1" max="100" value="92" />
+          <span class="range-value" id="quality-value">92</span>
+        </div>
+      </div>
+      <div id="export-actions">
+        <button id="export-cancel-btn">Cancel</button>
+        <button id="export-download-btn">Download</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const form = document.getElementById('upload-form');
     const fileInput = document.getElementById('file-input');
@@ -348,6 +491,17 @@
 
     const undoBtn = document.getElementById('undo-btn');
     const redoBtn = document.getElementById('redo-btn');
+    const saveBtn = document.getElementById('save-btn');
+
+    // Export dialog elements
+    const exportOverlay = document.getElementById('export-dialog-overlay');
+    const exportFilename = document.getElementById('export-filename');
+    const exportFormat = document.getElementById('export-format');
+    const exportQuality = document.getElementById('export-quality');
+    const qualityValue = document.getElementById('quality-value');
+    const qualityField = document.getElementById('quality-field');
+    const exportCancelBtn = document.getElementById('export-cancel-btn');
+    const exportDownloadBtn = document.getElementById('export-download-btn');
 
     let currentImg = null;
     let conversationHistory = [];
@@ -397,6 +551,7 @@
     function updateUndoRedoButtons() {
       undoBtn.disabled = historyIndex <= 0;
       redoBtn.disabled = historyIndex >= historyStack.length - 1;
+      saveBtn.disabled = !currentImg;
     }
 
     undoBtn.addEventListener('click', undo);
@@ -851,6 +1006,78 @@
       ctx.putImageData(imageData, 0, 0);
     }
 
+    // Export / Save functionality
+    function getDefaultFilename() {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      return `image-canvas-${yyyy}-${mm}-${dd}`;
+    }
+
+    function openExportDialog() {
+      if (!currentImg) return;
+      exportFilename.value = getDefaultFilename();
+      exportFormat.value = 'png';
+      qualityField.style.display = 'none';
+      exportQuality.value = 92;
+      qualityValue.textContent = '92';
+      exportOverlay.classList.add('visible');
+      exportFilename.select();
+    }
+
+    function closeExportDialog() {
+      exportOverlay.classList.remove('visible');
+    }
+
+    exportFormat.addEventListener('change', () => {
+      qualityField.style.display = exportFormat.value === 'jpeg' ? '' : 'none';
+    });
+
+    exportQuality.addEventListener('input', () => {
+      qualityValue.textContent = exportQuality.value;
+    });
+
+    exportCancelBtn.addEventListener('click', closeExportDialog);
+
+    exportOverlay.addEventListener('click', (e) => {
+      if (e.target === exportOverlay) closeExportDialog();
+    });
+
+    exportDownloadBtn.addEventListener('click', () => {
+      if (!currentImg) return;
+
+      const format = exportFormat.value;
+      const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+      const quality = format === 'jpeg' ? Number(exportQuality.value) / 100 : undefined;
+      const filename = (exportFilename.value.trim() || getDefaultFilename()) + '.' + format;
+
+      // Draw full-resolution image to an offscreen canvas for export
+      const offscreen = document.createElement('canvas');
+      offscreen.width = currentImg.width;
+      offscreen.height = currentImg.height;
+      offscreen.getContext('2d').drawImage(currentImg, 0, 0);
+
+      offscreen.toBlob((blob) => {
+        if (!blob) {
+          errorEl.textContent = 'Export failed.';
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        statusEl.textContent = `Exported ${filename}`;
+        closeExportDialog();
+      }, mimeType, quality);
+    });
+
+    saveBtn.addEventListener('click', openExportDialog);
+
     // Send chat message
     async function sendMessage() {
       const text = chatInput.value.trim();
@@ -910,7 +1137,7 @@
       }
     });
 
-    // Undo/Redo keyboard shortcuts
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -919,6 +1146,13 @@
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
         e.preventDefault();
         redo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        openExportDialog();
+      }
+      if (e.key === 'Escape' && exportOverlay.classList.contains('visible')) {
+        closeExportDialog();
       }
     });
 
