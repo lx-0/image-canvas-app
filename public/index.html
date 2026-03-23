@@ -76,6 +76,40 @@
       background: #c73652;
     }
 
+    #toolbar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .toolbar-btn {
+      background: #0f3460;
+      color: #e0e0e0;
+      border: 1px solid #1a4a7a;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .toolbar-btn:hover:not(:disabled) {
+      background: #1a4a7a;
+    }
+
+    .toolbar-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .toolbar-btn .shortcut {
+      font-size: 10px;
+      opacity: 0.6;
+    }
+
     #feedback {
       display: flex;
       gap: 16px;
@@ -270,6 +304,10 @@
       <input type="file" id="file-input" accept="image/*" />
       <button type="submit">Upload</button>
     </form>
+    <div id="toolbar">
+      <button id="undo-btn" class="toolbar-btn" disabled title="Undo (Ctrl+Z)">↩ Undo <span class="shortcut">Ctrl+Z</span></button>
+      <button id="redo-btn" class="toolbar-btn" disabled title="Redo (Ctrl+Y)">↪ Redo <span class="shortcut">Ctrl+Y</span></button>
+    </div>
     <div id="feedback">
       <span id="status"></span>
       <span id="error"></span>
@@ -308,8 +346,61 @@
     const chatInput = document.getElementById('chat-input');
     const chatSend = document.getElementById('chat-send');
 
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
+
     let currentImg = null;
     let conversationHistory = [];
+
+    // Undo/Redo history stack
+    const MAX_HISTORY = 20;
+    let historyStack = [];  // array of data URL strings
+    let historyIndex = -1;  // pointer to current state in stack
+
+    function saveState() {
+      if (!currentImg) return;
+      const dataURL = canvas.toDataURL('image/png');
+      // Discard any redo states ahead of current position
+      historyStack = historyStack.slice(0, historyIndex + 1);
+      historyStack.push(dataURL);
+      // Enforce stack limit
+      if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+      }
+      historyIndex = historyStack.length - 1;
+      updateUndoRedoButtons();
+    }
+
+    function undo() {
+      if (historyIndex <= 0) return;
+      historyIndex--;
+      restoreState(historyStack[historyIndex]);
+    }
+
+    function redo() {
+      if (historyIndex >= historyStack.length - 1) return;
+      historyIndex++;
+      restoreState(historyStack[historyIndex]);
+    }
+
+    function restoreState(dataURL) {
+      const img = new Image();
+      img.onload = () => {
+        currentImg = img;
+        resizeAndDraw();
+        statusEl.textContent = `${img.width}×${img.height} rendered`;
+        updateUndoRedoButtons();
+      };
+      img.src = dataURL;
+    }
+
+    function updateUndoRedoButtons() {
+      undoBtn.disabled = historyIndex <= 0;
+      redoBtn.disabled = historyIndex >= historyStack.length - 1;
+    }
+
+    undoBtn.addEventListener('click', undo);
+    redoBtn.addEventListener('click', redo);
 
     function resizeAndDraw() {
       const cw = container.clientWidth - 32;
@@ -365,6 +456,7 @@
         img.onload = () => {
           currentImg = img;
           resizeAndDraw();
+          saveState();
           statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
           addSystemMessage('Image loaded. You can now ask me to edit it.');
         };
@@ -402,6 +494,7 @@
         img.onload = () => {
           currentImg = img;
           resizeAndDraw();
+          saveState();
           statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
           addSystemMessage('Image loaded. You can now ask me to edit it.');
         };
@@ -540,6 +633,7 @@
           const snapshot = new Image();
           snapshot.onload = () => {
             currentImg = snapshot;
+            saveState();
             statusEl.textContent = `${currentImg.width}×${currentImg.height} composited`;
             resolve();
           };
@@ -619,6 +713,7 @@
       const snapshot = new Image();
       snapshot.onload = () => {
         currentImg = snapshot;
+        saveState();
         statusEl.textContent = `${currentImg.width}\u00d7${currentImg.height} rendered`;
       };
       snapshot.src = canvas.toDataURL('image/png');
@@ -812,6 +907,18 @@
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         sendMessage();
+      }
+    });
+
+    // Undo/Redo keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
       }
     });
 
