@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const express = require('express');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -31,7 +32,8 @@ if (!fs.existsSync(uploadsDir)) {
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
+    const sanitized = sanitizeFilename(file.originalname);
+    const ext = path.extname(sanitized);
     cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
   },
 });
@@ -92,6 +94,71 @@ app.use((_req, res, next) => {
   next();
 });
 
+// Rate limiters
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({ error: 'Too many requests, please try again later' });
+  },
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({ error: 'Too many uploads, please try again later' });
+  },
+});
+
+// Magic byte signatures for common image formats
+const IMAGE_SIGNATURES = [
+  { ext: 'jpg', bytes: [0xFF, 0xD8, 0xFF] },
+  { ext: 'png', bytes: [0x89, 0x50, 0x4E, 0x47] },
+  { ext: 'gif', bytes: [0x47, 0x49, 0x46] },
+  { ext: 'webp', bytes: [0x52, 0x49, 0x46, 0x46], offset4: [0x57, 0x45, 0x42, 0x50] },
+  { ext: 'bmp', bytes: [0x42, 0x4D] },
+];
+
+function isValidImageByMagicBytes(filePath) {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(12);
+    fs.readSync(fd, buf, 0, 12, 0);
+    fs.closeSync(fd);
+
+    for (const sig of IMAGE_SIGNATURES) {
+      const match = sig.bytes.every((b, i) => buf[i] === b);
+      if (match) {
+        if (sig.offset4) {
+          const match2 = sig.offset4.every((b, i) => buf[i + 8] === b);
+          if (match2) return true;
+        } else {
+          return true;
+        }
+      }
+    }
+    // Allow SVG (starts with < or whitespace then <)
+    const str = buf.toString('utf8').trim();
+    if (str.startsWith('<')) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeFilename(filename) {
+  // Strip directory components and path traversal
+  const base = path.basename(filename);
+  // Remove special characters, keep alphanumeric, dots, hyphens, underscores
+  return base.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 // List uploaded images
@@ -136,14 +203,23 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-app.post('/upload', upload.single('file'), (req, res) => {
+app.post('/upload', uploadLimiter, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
+
+  // Validate magic bytes
+  const filePath = path.join(uploadsDir, req.file.filename);
+  if (!isValidImageByMagicBytes(filePath)) {
+    // Remove the invalid file
+    try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+    return res.status(400).json({ error: 'File content does not match a valid image format' });
+  }
+
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', apiLimiter, async (req, res) => {
   if (!anthropic) {
     return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
   }
@@ -209,7 +285,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-app.post('/api/chat/stream', async (req, res) => {
+app.post('/api/chat/stream', apiLimiter, async (req, res) => {
   if (!anthropic) {
     return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
   }
@@ -289,7 +365,7 @@ app.post('/api/chat/stream', async (req, res) => {
   }
 });
 
-app.post('/api/composite', async (req, res) => {
+app.post('/api/composite', apiLimiter, async (req, res) => {
   if (!anthropic) {
     return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
   }
