@@ -1850,7 +1850,7 @@
           resizeAndDraw();
           saveState();
           statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
-          if (typeof addToGallery === 'function') { addToGallery(data.url, file.name); renderGallery(); }
+          if (typeof addToGallery === 'function') { addToGallery(data.url, file.name, data.thumbnailUrl); renderGallery(); }
           // Restore existing conversation for this image, or start fresh
           const saved = loadConversation(data.url);
           if (saved && saved.length > 0) {
@@ -1896,7 +1896,7 @@
           resizeAndDraw();
           saveState();
           statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
-          if (typeof addToGallery === 'function') { addToGallery(data.url, file.name); renderGallery(); }
+          if (typeof addToGallery === 'function') { addToGallery(data.url, file.name, data.thumbnailUrl); renderGallery(); }
           const saved = loadConversation(data.url);
           if (saved && saved.length > 0) {
             conversationHistory = saved;
@@ -2905,9 +2905,9 @@
       return galleryItems.find((item) => item.url === url);
     }
 
-    function addToGallery(url, name) {
+    function addToGallery(url, name, thumbnailUrl) {
       if (findGalleryItem(url)) return;
-      galleryItems.unshift({ url, name: name || url.split('/').pop(), editCount: 0 });
+      galleryItems.unshift({ url, thumbnailUrl: thumbnailUrl || null, name: name || url.split('/').pop(), editCount: 0 });
       saveGalleryState();
       renderGallery();
     }
@@ -2943,7 +2943,7 @@
         if (currentImageKey === item.url) div.classList.add('active');
 
         const img = document.createElement('img');
-        img.src = item.url;
+        img.src = item.thumbnailUrl || item.url;
         img.alt = item.name;
         img.loading = 'lazy';
         div.appendChild(img);
@@ -3075,7 +3075,7 @@
           const existingMap = new Map(galleryItems.map((i) => [i.url, i]));
           for (const img of data.images) {
             if (!existingMap.has(img.url)) {
-              galleryItems.push({ url: img.url, name: img.name, editCount: 0 });
+              galleryItems.push({ url: img.url, thumbnailUrl: img.thumbnailUrl || null, name: img.name, editCount: 0 });
             }
           }
           // Remove gallery items whose files no longer exist on server

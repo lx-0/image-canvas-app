@@ -5,6 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
+const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -27,6 +28,11 @@ const uploadsDir = path.isAbsolute(config.uploadDir)
   : path.join(__dirname, '..', config.uploadDir);
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const thumbnailsDir = path.join(uploadsDir, '..', 'thumbnails');
+if (!fs.existsSync(thumbnailsDir)) {
+  fs.mkdirSync(thumbnailsDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
@@ -160,6 +166,25 @@ function sanitizeFilename(filename) {
 }
 
 app.use(express.static(path.join(__dirname, '../public')));
+app.use('/thumbnails', express.static(thumbnailsDir));
+
+// Resize a base64 image to fit within Claude API's max dimension (1568px on longest side)
+async function resizeForApi(base64Data, mediaType) {
+  const inputBuffer = Buffer.from(base64Data, 'base64');
+  const metadata = await sharp(inputBuffer).metadata();
+  const longest = Math.max(metadata.width || 0, metadata.height || 0);
+
+  if (longest <= 1568) {
+    return { data: base64Data, media_type: mediaType };
+  }
+
+  const resized = await sharp(inputBuffer)
+    .resize({ width: 1568, height: 1568, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 85 })
+    .toBuffer();
+
+  return { data: resized.toString('base64'), media_type: 'image/jpeg' };
+}
 
 // List uploaded images
 app.get('/api/images', (_req, res) => {
@@ -168,7 +193,15 @@ app.get('/api/images', (_req, res) => {
       .filter((f) => /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(f))
       .map((f) => {
         const stat = fs.statSync(path.join(uploadsDir, f));
-        return { url: `/uploads/${f}`, name: f, size: stat.size, createdAt: stat.birthtimeMs || stat.ctimeMs };
+        const thumbFile = `thumb_${f}`;
+        const thumbExists = fs.existsSync(path.join(thumbnailsDir, thumbFile));
+        return {
+          url: `/uploads/${f}`,
+          thumbnailUrl: thumbExists ? `/thumbnails/${thumbFile}` : null,
+          name: f,
+          size: stat.size,
+          createdAt: stat.birthtimeMs || stat.ctimeMs,
+        };
       })
       .sort((a, b) => b.createdAt - a.createdAt);
     res.json({ images: files });
@@ -189,6 +222,9 @@ app.delete('/api/images/:filename', (req, res) => {
   try {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
+      // Also delete thumbnail if it exists
+      const thumbPath = path.join(thumbnailsDir, `thumb_${filename}`);
+      try { if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath); } catch { /* ignore */ }
       res.json({ success: true });
     } else {
       res.status(404).json({ error: 'File not found' });
@@ -203,20 +239,47 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-app.post('/upload', uploadLimiter, upload.single('file'), (req, res) => {
+app.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
-  // Validate magic bytes
   const filePath = path.join(uploadsDir, req.file.filename);
+
+  // Validate magic bytes
   if (!isValidImageByMagicBytes(filePath)) {
-    // Remove the invalid file
     try { fs.unlinkSync(filePath); } catch { /* ignore */ }
     return res.status(400).json({ error: 'File content does not match a valid image format' });
   }
 
-  res.json({ url: `/uploads/${req.file.filename}` });
+  try {
+    // Optimize the uploaded image: auto-compress while preserving quality and EXIF orientation
+    const optimizedPath = filePath + '.opt';
+    await sharp(filePath)
+      .rotate() // auto-rotate based on EXIF orientation
+      .jpeg({ quality: 85, mozjpeg: true })
+      .toFile(optimizedPath);
+
+    // Replace original with optimized version
+    fs.renameSync(optimizedPath, filePath);
+
+    // Generate 200px-wide thumbnail
+    const thumbFilename = `thumb_${req.file.filename}`;
+    const thumbPath = path.join(thumbnailsDir, thumbFilename);
+    await sharp(filePath)
+      .resize(200, null, { withoutEnlargement: true })
+      .jpeg({ quality: 75 })
+      .toFile(thumbPath);
+
+    res.json({
+      url: `/uploads/${req.file.filename}`,
+      thumbnailUrl: `/thumbnails/${thumbFilename}`,
+    });
+  } catch (err) {
+    console.error('Image optimization error:', err.message);
+    // Fall back to unoptimized upload if sharp fails (e.g., SVG or unsupported format)
+    res.json({ url: `/uploads/${req.file.filename}` });
+  }
 });
 
 app.post('/api/chat', apiLimiter, async (req, res) => {
@@ -231,19 +294,20 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
   }
 
   try {
-    const apiMessages = messages.map((msg, i) => {
+    const apiMessages = await Promise.all(messages.map(async (msg, i) => {
       const content = [];
 
       // Attach the current canvas image to the latest user message
       if (msg.role === 'user' && i === messages.length - 1 && imageData) {
         const match = imageData.match(/^data:(image\/\w+);base64,(.+)$/);
         if (match) {
+          const optimized = await resizeForApi(match[2], match[1]);
           content.push({
             type: 'image',
             source: {
               type: 'base64',
-              media_type: match[1],
-              data: match[2],
+              media_type: optimized.media_type,
+              data: optimized.data,
             },
           });
         }
@@ -251,7 +315,7 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
 
       content.push({ type: 'text', text: msg.content });
       return { role: msg.role, content };
-    });
+    }));
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -313,20 +377,21 @@ app.post('/api/chat/stream', apiLimiter, async (req, res) => {
   }
 
   try {
-    const apiMessages = messages.map((msg, i) => {
+    const apiMessages = await Promise.all(messages.map(async (msg, i) => {
       const content = [];
       if (msg.role === 'user' && i === messages.length - 1 && imageData) {
         const match = imageData.match(/^data:(image\/\w+);base64,(.+)$/);
         if (match) {
+          const optimized = await resizeForApi(match[2], match[1]);
           content.push({
             type: 'image',
-            source: { type: 'base64', media_type: match[1], data: match[2] },
+            source: { type: 'base64', media_type: optimized.media_type, data: optimized.data },
           });
         }
       }
       content.push({ type: 'text', text: msg.content });
       return { role: msg.role, content };
-    });
+    }));
 
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-20250514',
@@ -394,6 +459,10 @@ app.post('/api/composite', apiLimiter, async (req, res) => {
     : 'Composite the second image onto the first. Identify the main subject/object in the second image and place it naturally on the base image.';
 
   try {
+    // Resize both images for the API
+    const optimizedBase = await resizeForApi(base.data, base.media_type);
+    const optimizedDropped = await resizeForApi(dropped.data, dropped.media_type);
+
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
@@ -418,8 +487,8 @@ I identified a cat in the dropped image and placed it on the couch in the base i
         {
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: base.media_type, data: base.data } },
-            { type: 'image', source: { type: 'base64', media_type: dropped.media_type, data: dropped.data } },
+            { type: 'image', source: { type: 'base64', media_type: optimizedBase.media_type, data: optimizedBase.data } },
+            { type: 'image', source: { type: 'base64', media_type: optimizedDropped.media_type, data: optimizedDropped.data } },
             { type: 'text', text: userPrompt },
           ],
         },
