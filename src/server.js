@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
 
 // Configuration with defaults
@@ -18,6 +19,63 @@ const config = {
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024,
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };
+
+// Structured logging with timestamps
+function logError(requestId, message, err) {
+  const ts = new Date().toISOString();
+  console.error(`[${ts}] [${requestId}] ${message}:`, err && err.message ? err.message : err);
+}
+
+function logInfo(requestId, message) {
+  const ts = new Date().toISOString();
+  console.log(`[${ts}] [${requestId}] ${message}`);
+}
+
+// Generate a short unique request ID
+function generateRequestId() {
+  return crypto.randomBytes(8).toString('hex');
+}
+
+// Classify Anthropic API errors into user-friendly messages
+function classifyApiError(err) {
+  const status = err && err.status;
+  if (status === 401 || status === 403) {
+    return { status: 502, message: 'AI service authentication error. Please contact the administrator.', retryable: false };
+  }
+  if (status === 429) {
+    return { status: 429, message: 'AI service is busy. Please wait a moment and try again.', retryable: true };
+  }
+  if (status === 408 || (err && err.code === 'ETIMEDOUT') || (err && err.message && err.message.includes('timeout'))) {
+    return { status: 504, message: 'AI service timed out. Please try again.', retryable: true };
+  }
+  if (status >= 500) {
+    return { status: 502, message: 'AI service is temporarily unavailable. Please try again shortly.', retryable: true };
+  }
+  if (err && (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ECONNRESET')) {
+    return { status: 502, message: 'Unable to reach AI service. Please try again later.', retryable: true };
+  }
+  return { status: 500, message: 'An unexpected error occurred processing your request.', retryable: false };
+}
+
+// Retry wrapper with exponential backoff for Anthropic API calls
+async function withRetry(fn, requestId, maxAttempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const classified = classifyApiError(err);
+      if (!classified.retryable || attempt === maxAttempts) {
+        throw err;
+      }
+      const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+      logInfo(requestId, `Attempt ${attempt}/${maxAttempts} failed (${err.status || err.code || 'unknown'}), retrying in ${delayMs}ms`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  throw lastError;
+}
 
 const app = express();
 
@@ -91,6 +149,13 @@ Example response for "rotate 90 degrees and add hello text":
 Rotated the image 90° clockwise and added "Hello" text in the center.
 
 If the user asks a general question or something that doesn't require canvas manipulation, just respond normally without commands. Always be concise.`;
+
+// Request ID middleware — attaches a unique ID to every request
+app.use((req, res, next) => {
+  req.requestId = generateRequestId();
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
 
 // CORS
 app.use((_req, res, next) => {
@@ -206,7 +271,7 @@ app.get('/api/images', (_req, res) => {
       .sort((a, b) => b.createdAt - a.createdAt);
     res.json({ images: files });
   } catch (err) {
-    console.error('List images error:', err.message);
+    logError(req.requestId, 'List images error', err);
     res.json({ images: [] });
   }
 });
@@ -230,7 +295,7 @@ app.delete('/api/images/:filename', (req, res) => {
       res.status(404).json({ error: 'File not found' });
     }
   } catch (err) {
-    console.error('Delete image error:', err.message);
+    logError(req.requestId, 'Delete image error', err);
     res.status(500).json({ error: 'Failed to delete image' });
   }
 });
@@ -276,21 +341,23 @@ app.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {
       thumbnailUrl: `/thumbnails/${thumbFilename}`,
     });
   } catch (err) {
-    console.error('Image optimization error:', err.message);
+    logError(req.requestId, 'Image optimization error', err);
     // Fall back to unoptimized upload if sharp fails (e.g., SVG or unsupported format)
     res.json({ url: `/uploads/${req.file.filename}` });
   }
 });
 
 app.post('/api/chat', apiLimiter, async (req, res) => {
+  const requestId = req.requestId;
+
   if (!anthropic) {
-    return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+    return res.status(503).json({ error: 'AI assistant is not configured. Image uploads still work normally.', requestId });
   }
 
   const { messages, imageData } = req.body;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: 'messages array is required' });
+    return res.status(400).json({ error: 'messages array is required', requestId });
   }
 
   try {
@@ -317,12 +384,12 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
       return { role: msg.role, content };
     }));
 
-    const response = await anthropic.messages.create({
+    const response = await withRetry(() => anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       messages: apiMessages,
-    });
+    }), requestId);
 
     const text = response.content
       .filter((block) => block.type === 'text')
@@ -342,28 +409,32 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
 
     const displayText = text.replace(/<commands>[\s\S]*?<\/commands>\s*/g, '').trim();
 
-    res.json({ response: displayText, commands });
+    res.json({ response: displayText, commands, requestId });
   } catch (err) {
-    console.error('Chat API error:', err.message);
-    res.status(500).json({ error: 'Failed to process chat request' });
+    const classified = classifyApiError(err);
+    logError(requestId, 'Chat API error', err);
+    res.status(classified.status).json({ error: classified.message, retryable: classified.retryable, requestId });
   }
 });
 
 app.post('/api/chat/stream', apiLimiter, async (req, res) => {
+  const requestId = req.requestId;
+
   if (!anthropic) {
-    return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+    return res.status(503).json({ error: 'AI assistant is not configured. Image uploads still work normally.', requestId });
   }
 
   const { messages, imageData } = req.body;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: 'messages array is required' });
+    return res.status(400).json({ error: 'messages array is required', requestId });
   }
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
+    'X-Request-Id': requestId,
   });
 
   let closed = false;
@@ -393,12 +464,16 @@ app.post('/api/chat/stream', apiLimiter, async (req, res) => {
       return { role: msg.role, content };
     }));
 
-    const stream = anthropic.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: apiMessages,
-    });
+    // Retry logic: for streams, retry the initial connection (not mid-stream)
+    const stream = await withRetry(() => {
+      const s = anthropic.messages.stream({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages: apiMessages,
+      });
+      return s;
+    }, requestId);
 
     let fullText = '';
 
@@ -407,7 +482,7 @@ app.post('/api/chat/stream', apiLimiter, async (req, res) => {
       sendEvent('delta', { text: textDelta });
     });
 
-    const finalMessage = await stream.finalMessage();
+    await stream.finalMessage();
 
     // Extract commands from the full response
     let commands = null;
@@ -421,24 +496,27 @@ app.post('/api/chat/stream', apiLimiter, async (req, res) => {
     }
 
     const displayText = fullText.replace(/<commands>[\s\S]*?<\/commands>\s*/g, '').trim();
-    sendEvent('done', { response: displayText, commands });
+    sendEvent('done', { response: displayText, commands, requestId });
     res.end();
   } catch (err) {
-    console.error('Chat stream error:', err.message);
-    sendEvent('error', { error: 'Failed to process chat request' });
+    const classified = classifyApiError(err);
+    logError(requestId, 'Chat stream error', err);
+    sendEvent('error', { error: classified.message, retryable: classified.retryable, requestId });
     res.end();
   }
 });
 
 app.post('/api/composite', apiLimiter, async (req, res) => {
+  const requestId = req.requestId;
+
   if (!anthropic) {
-    return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+    return res.status(503).json({ error: 'AI assistant is not configured. Image uploads still work normally.', requestId });
   }
 
   const { baseImage, droppedImage, instructions } = req.body;
 
   if (!baseImage || !droppedImage) {
-    return res.status(400).json({ error: 'baseImage and droppedImage are required' });
+    return res.status(400).json({ error: 'baseImage and droppedImage are required', requestId });
   }
 
   function parseDataURL(dataUrl) {
@@ -463,7 +541,7 @@ app.post('/api/composite', apiLimiter, async (req, res) => {
     const optimizedBase = await resizeForApi(base.data, base.media_type);
     const optimizedDropped = await resizeForApi(dropped.data, dropped.media_type);
 
-    const response = await anthropic.messages.create({
+    const response = await withRetry(() => anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: `You are an image compositing assistant. You receive two images:
@@ -493,7 +571,7 @@ I identified a cat in the dropped image and placed it on the couch in the base i
           ],
         },
       ],
-    });
+    }), requestId);
 
     const text = response.content
       .filter((block) => block.type === 'text')
@@ -512,10 +590,11 @@ I identified a cat in the dropped image and placed it on the couch in the base i
 
     const displayText = text.replace(/<composite>[\s\S]*?<\/composite>\s*/g, '').trim();
 
-    res.json({ response: displayText, composite: compositeData });
+    res.json({ response: displayText, composite: compositeData, requestId });
   } catch (err) {
-    console.error('Composite API error:', err.message);
-    res.status(500).json({ error: 'Failed to process composite request' });
+    const classified = classifyApiError(err);
+    logError(requestId, 'Composite API error', err);
+    res.status(classified.status).json({ error: classified.message, retryable: classified.retryable, requestId });
   }
 });
 

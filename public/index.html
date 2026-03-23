@@ -2005,6 +2005,7 @@
 
         if (!res.ok) {
           errorEl.textContent = data.error || 'Composite request failed.';
+          if (data.requestId) errorEl.textContent += ' (ref: ' + data.requestId + ')';
           statusEl.textContent = '';
           hideCanvasOverlay();
           return;
@@ -2019,7 +2020,8 @@
         }
         hideCanvasOverlay();
       } catch (err) {
-        errorEl.textContent = 'Compositing error: ' + err.message;
+        const isNetwork = err instanceof TypeError || (err.message && (err.message.includes('fetch') || err.message.includes('network')));
+        errorEl.textContent = isNetwork ? 'Network error — check your connection and try again.' : 'Compositing error: ' + err.message;
         statusEl.textContent = '';
         hideCanvasOverlay();
       }
@@ -2078,6 +2080,24 @@
       const div = document.createElement('div');
       div.className = 'chat-msg system';
       div.textContent = text;
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function addRetryableError(text, retryFn) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg system';
+      const msgSpan = document.createElement('span');
+      msgSpan.textContent = text + ' ';
+      div.appendChild(msgSpan);
+      const retryBtn = document.createElement('button');
+      retryBtn.textContent = 'Retry';
+      retryBtn.style.cssText = 'padding:2px 10px;border-radius:4px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-size:0.85em;margin-left:4px';
+      retryBtn.addEventListener('click', () => {
+        div.remove();
+        retryFn();
+      });
+      div.appendChild(retryBtn);
       chatMessages.appendChild(div);
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -2689,17 +2709,22 @@
     }
 
     // Send chat message with streaming
-    async function sendMessage() {
-      const text = chatInput.value.trim();
+    async function sendMessage(retryText) {
+      const isRetry = typeof retryText === 'string';
+      const text = isRetry ? retryText : chatInput.value.trim();
       if (!text) return;
 
-      addChatMessage('user', text);
-      chatInput.value = '';
+      if (!isRetry) {
+        addChatMessage('user', text);
+        chatInput.value = '';
+      }
       setChatEnabled(false);
       addTypingIndicator();
 
-      conversationHistory.push({ role: 'user', content: text });
-      saveConversation();
+      if (!isRetry) {
+        conversationHistory.push({ role: 'user', content: text });
+        saveConversation();
+      }
 
       const body = {
         messages: conversationHistory,
@@ -2788,8 +2813,14 @@
 
           if (!res.ok) {
             removeTypingIndicator();
-            addSystemMessage(data.error || 'Chat request failed.');
-            conversationHistory.pop();
+            const errMsg = data.error || 'Chat request failed.';
+            if (data.retryable) {
+              conversationHistory.pop();
+              addRetryableError(errMsg, sendMessage.bind(null, text));
+            } else {
+              addSystemMessage(errMsg);
+              conversationHistory.pop();
+            }
             setChatEnabled(true);
             return;
           }
@@ -2810,8 +2841,13 @@
           }
         } catch (fallbackErr) {
           removeTypingIndicator();
-          addSystemMessage('Error: ' + fallbackErr.message);
           conversationHistory.pop();
+          const isNetwork = fallbackErr instanceof TypeError || fallbackErr.message.includes('fetch') || fallbackErr.message.includes('network');
+          if (isNetwork) {
+            addRetryableError('Network error — check your connection and try again.', sendMessage.bind(null, text));
+          } else {
+            addRetryableError('Something went wrong. ' + fallbackErr.message, sendMessage.bind(null, text));
+          }
         }
       }
 
