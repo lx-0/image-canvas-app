@@ -250,6 +250,7 @@
       min-height: 0;
       position: relative;
       background: #12122a;
+      overflow: hidden;
     }
 
     canvas {
@@ -257,6 +258,52 @@
       border-radius: 4px;
       background: #0e0e1a;
       box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+      transform-origin: 0 0;
+      transition: none;
+    }
+
+    /* Zoom status bar */
+    #zoom-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(22, 33, 62, 0.9);
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 4px 8px;
+      z-index: 5;
+      user-select: none;
+    }
+
+    .zoom-btn {
+      background: transparent;
+      color: #e0e0e0;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .zoom-btn:hover {
+      background: #1a4a7a;
+    }
+
+    #zoom-level {
+      color: #c0c0d0;
+      font-size: 12px;
+      font-weight: 500;
+      min-width: 42px;
+      text-align: center;
     }
 
     #canvas-container.dragover {
@@ -534,6 +581,12 @@
         <div class="spinner"></div>
         <span id="canvas-overlay-text">Processing…</span>
       </div>
+      <div id="zoom-bar">
+        <button class="zoom-btn" id="zoom-out-btn" title="Zoom out (Ctrl+-)">−</button>
+        <span id="zoom-level">100%</span>
+        <button class="zoom-btn" id="zoom-in-btn" title="Zoom in (Ctrl++)">+</button>
+        <button class="zoom-btn" id="zoom-fit-btn" title="Fit to view (Ctrl+0)">⊡</button>
+      </div>
     </div>
 
     <div id="chat-panel">
@@ -757,6 +810,111 @@
     window.addEventListener('resize', resizeAndDraw);
     resizeAndDraw();
 
+    // ── Zoom & Pan ──
+    const MIN_ZOOM = 0.1;
+    const MAX_ZOOM = 5;
+    const ZOOM_STEP = 0.1;
+    let zoomLevel = 1;
+    let panX = 0;
+    let panY = 0;
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let panStartPanX = 0;
+    let panStartPanY = 0;
+
+    const zoomLevelEl = document.getElementById('zoom-level');
+    const zoomInBtn = document.getElementById('zoom-in-btn');
+    const zoomOutBtn = document.getElementById('zoom-out-btn');
+    const zoomFitBtn = document.getElementById('zoom-fit-btn');
+
+    function applyTransform() {
+      canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+      zoomLevelEl.textContent = Math.round(zoomLevel * 100) + '%';
+    }
+
+    function resetZoomPan() {
+      zoomLevel = 1;
+      panX = 0;
+      panY = 0;
+      applyTransform();
+    }
+
+    function zoomToPoint(newZoom, clientX, clientY) {
+      newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+      const rect = container.getBoundingClientRect();
+      const cx = clientX - rect.left;
+      const cy = clientY - rect.top;
+      // Point on canvas under cursor (in canvas pixel coords)
+      const canvasRect = canvas.getBoundingClientRect();
+      const ox = (clientX - canvasRect.left) / zoomLevel;
+      const oy = (clientY - canvasRect.top) / zoomLevel;
+      // Flex centering offset (unchanged by transform since it uses pre-transform size)
+      const flexOffsetX = (rect.width - canvas.width) / 2;
+      const flexOffsetY = (rect.height - canvas.height) / 2;
+
+      zoomLevel = newZoom;
+      // Keep the point under cursor fixed after zoom
+      panX = cx - flexOffsetX - ox * newZoom;
+      panY = cy - flexOffsetY - oy * newZoom;
+      applyTransform();
+    }
+
+    // Mouse wheel zoom
+    container.addEventListener('wheel', (e) => {
+      if (!currentImg) return;
+      e.preventDefault();
+      const delta = -Math.sign(e.deltaY) * ZOOM_STEP * Math.max(1, zoomLevel * 0.5);
+      zoomToPoint(zoomLevel + delta, e.clientX, e.clientY);
+    }, { passive: false });
+
+    // Prevent middle-click auto-scroll
+    container.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+
+    // Pan via middle-mouse or left-click drag when zoomed
+    container.addEventListener('mousedown', (e) => {
+      if (!currentImg) return;
+      if (e.button === 1 || (e.button === 0 && zoomLevel !== 1)) {
+        if (e.button === 0 && zoomLevel === 1) return;
+        e.preventDefault();
+        isPanning = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        panStartPanX = panX;
+        panStartPanY = panY;
+        container.style.cursor = 'grabbing';
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      panX = panStartPanX + (e.clientX - panStartX);
+      panY = panStartPanY + (e.clientY - panStartY);
+      applyTransform();
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (isPanning) {
+        isPanning = false;
+        container.style.cursor = '';
+      }
+    });
+
+    // Zoom buttons
+    zoomInBtn.addEventListener('click', () => {
+      if (!currentImg) return;
+      const rect = container.getBoundingClientRect();
+      zoomToPoint(zoomLevel + ZOOM_STEP * Math.max(1, zoomLevel * 0.5), rect.left + rect.width / 2, rect.top + rect.height / 2);
+    });
+
+    zoomOutBtn.addEventListener('click', () => {
+      if (!currentImg) return;
+      const rect = container.getBoundingClientRect();
+      zoomToPoint(zoomLevel - ZOOM_STEP * Math.max(1, zoomLevel * 0.5), rect.left + rect.width / 2, rect.top + rect.height / 2);
+    });
+
+    zoomFitBtn.addEventListener('click', resetZoomPan);
+
     // Upload via form
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -782,6 +940,7 @@
         const img = new Image();
         img.onload = () => {
           currentImg = img;
+          resetZoomPan();
           resizeAndDraw();
           saveState();
           statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
@@ -815,6 +974,7 @@
         const img = new Image();
         img.onload = () => {
           currentImg = img;
+          resetZoomPan();
           resizeAndDraw();
           saveState();
           statusEl.textContent = `${img.width}\u00d7${img.height} rendered`;
@@ -1429,6 +1589,19 @@
       }
       if (e.key === 'Escape' && exportOverlay.classList.contains('visible')) {
         closeExportDialog();
+      }
+      // Zoom shortcuts
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        zoomInBtn.click();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        zoomOutBtn.click();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        resetZoomPan();
       }
     });
 
