@@ -11,12 +11,12 @@ const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Configuration with defaults
 const config = {
   port: parseInt(process.env.PORT, 10) || 3000,
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
   uploadDir: process.env.UPLOAD_DIR || 'public/uploads',
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024,
   corsOrigin: process.env.CORS_ORIGIN || '*',
@@ -38,16 +38,17 @@ function generateRequestId() {
   return crypto.randomBytes(8).toString('hex');
 }
 
-// Classify Anthropic API errors into user-friendly messages
+// Classify Gemini API errors into user-friendly messages
 function classifyApiError(err) {
   const status = err && err.status;
-  if (status === 401 || status === 403) {
+  const message = err && err.message ? err.message.toLowerCase() : '';
+  if (status === 401 || status === 403 || message.includes('api key')) {
     return { status: 502, message: 'AI service authentication error. Please contact the administrator.', retryable: false };
   }
-  if (status === 429) {
+  if (status === 429 || message.includes('resource exhausted') || message.includes('quota')) {
     return { status: 429, message: 'AI service is busy. Please wait a moment and try again.', retryable: true };
   }
-  if (status === 408 || (err && err.code === 'ETIMEDOUT') || (err && err.message && err.message.includes('timeout'))) {
+  if (status === 408 || (err && err.code === 'ETIMEDOUT') || message.includes('timeout') || message.includes('deadline')) {
     return { status: 504, message: 'AI service timed out. Please try again.', retryable: true };
   }
   if (status >= 500) {
@@ -59,7 +60,7 @@ function classifyApiError(err) {
   return { status: 500, message: 'An unexpected error occurred processing your request.', retryable: false };
 }
 
-// Retry wrapper with exponential backoff for Anthropic API calls
+// Retry wrapper with exponential backoff for Gemini API calls
 async function withRetry(fn, requestId, maxAttempts = 3) {
   let lastError;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -120,12 +121,19 @@ const upload = multer({
   limits: { fileSize: config.maxFileSize },
 });
 
-let anthropic = null;
-if (config.anthropicApiKey) {
-  anthropic = new Anthropic();
+// Initialize Gemini client
+let geminiModel = null;
+if (config.geminiApiKey) {
+  const genAI = new GoogleGenerativeAI(config.geminiApiKey);
+  geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 } else {
-  console.warn('ANTHROPIC_API_KEY not set — /api/chat will return 503 until configured');
+  console.warn('GEMINI_API_KEY not set — /api/chat will return 503 until configured');
 }
+
+// Test helper: allow injecting a mock Gemini model
+app._setGeminiModel = function (model) {
+  geminiModel = model;
+};
 
 const SYSTEM_PROMPT = `You are an AI image editing assistant. The user has an image displayed on an HTML5 canvas and will ask you to manipulate it.
 
@@ -244,22 +252,41 @@ function sanitizeFilename(filename) {
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/thumbnails', express.static(thumbnailsDir));
 
-// Resize a base64 image to fit within Claude API's max dimension (1568px on longest side)
+// Resize a base64 image to fit within Gemini API limits
 async function resizeForApi(base64Data, mediaType) {
   const inputBuffer = Buffer.from(base64Data, 'base64');
   const metadata = await sharp(inputBuffer).metadata();
   const longest = Math.max(metadata.width || 0, metadata.height || 0);
 
-  if (longest <= 1568) {
-    return { data: base64Data, media_type: mediaType };
+  if (longest <= 3072) {
+    return { data: base64Data, mimeType: mediaType };
   }
 
   const resized = await sharp(inputBuffer)
-    .resize({ width: 1568, height: 1568, fit: 'inside', withoutEnlargement: true })
+    .resize({ width: 3072, height: 3072, fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 85 })
     .toBuffer();
 
-  return { data: resized.toString('base64'), media_type: 'image/jpeg' };
+  return { data: resized.toString('base64'), mimeType: 'image/jpeg' };
+}
+
+// Convert chat messages to Gemini format
+function buildGeminiContents(messages, imageParts) {
+  const contents = [];
+  for (const msg of messages) {
+    const parts = [];
+
+    // Add image parts to user messages if provided
+    if (msg.role === 'user' && imageParts && msg === messages[messages.length - 1]) {
+      for (const img of imageParts) {
+        parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+      }
+    }
+
+    parts.push({ text: msg.content });
+    contents.push({ role: msg.role === 'assistant' ? 'model' : 'user', parts });
+  }
+  return contents;
 }
 
 // List uploaded images
@@ -361,7 +388,7 @@ app.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {
 app.post('/api/chat', apiLimiter, async (req, res) => {
   const requestId = req.requestId;
 
-  if (!anthropic) {
+  if (!geminiModel) {
     return res.status(503).json({ error: 'AI assistant is not configured. Image uploads still work normally.', requestId });
   }
 
@@ -372,40 +399,25 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
   }
 
   try {
-    const apiMessages = await Promise.all(messages.map(async (msg, i) => {
-      const content = [];
-
-      // Attach the current canvas image to the latest user message
-      if (msg.role === 'user' && i === messages.length - 1 && imageData) {
-        const match = imageData.match(/^data:(image\/\w+);base64,(.+)$/);
-        if (match) {
-          const optimized = await resizeForApi(match[2], match[1]);
-          content.push({
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: optimized.media_type,
-              data: optimized.data,
-            },
-          });
-        }
+    // Prepare image parts if provided
+    const imageParts = [];
+    if (imageData) {
+      const match = imageData.match(/^data:(image\/\w+);base64,(.+)$/);
+      if (match) {
+        const optimized = await resizeForApi(match[2], match[1]);
+        imageParts.push(optimized);
       }
+    }
 
-      content.push({ type: 'text', text: msg.content });
-      return { role: msg.role, content };
-    }));
+    const contents = buildGeminiContents(messages, imageParts.length > 0 ? imageParts : null);
 
-    const response = await withRetry(() => anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: apiMessages,
+    const response = await withRetry(() => geminiModel.generateContent({
+      contents,
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      generationConfig: { maxOutputTokens: 1024 },
     }), requestId);
 
-    const text = response.content
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('');
+    const text = response.response.text();
 
     // Extract commands if present
     let commands = null;
@@ -431,7 +443,7 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
 app.post('/api/chat/stream', apiLimiter, async (req, res) => {
   const requestId = req.requestId;
 
-  if (!anthropic) {
+  if (!geminiModel) {
     return res.status(503).json({ error: 'AI assistant is not configured. Image uploads still work normally.', requestId });
   }
 
@@ -459,41 +471,34 @@ app.post('/api/chat/stream', apiLimiter, async (req, res) => {
   }
 
   try {
-    const apiMessages = await Promise.all(messages.map(async (msg, i) => {
-      const content = [];
-      if (msg.role === 'user' && i === messages.length - 1 && imageData) {
-        const match = imageData.match(/^data:(image\/\w+);base64,(.+)$/);
-        if (match) {
-          const optimized = await resizeForApi(match[2], match[1]);
-          content.push({
-            type: 'image',
-            source: { type: 'base64', media_type: optimized.media_type, data: optimized.data },
-          });
-        }
+    // Prepare image parts if provided
+    const imageParts = [];
+    if (imageData) {
+      const match = imageData.match(/^data:(image\/\w+);base64,(.+)$/);
+      if (match) {
+        const optimized = await resizeForApi(match[2], match[1]);
+        imageParts.push(optimized);
       }
-      content.push({ type: 'text', text: msg.content });
-      return { role: msg.role, content };
-    }));
+    }
+
+    const contents = buildGeminiContents(messages, imageParts.length > 0 ? imageParts : null);
 
     // Retry logic: for streams, retry the initial connection (not mid-stream)
-    const stream = await withRetry(() => {
-      const s = anthropic.messages.stream({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: apiMessages,
-      });
-      return s;
-    }, requestId);
+    const streamResult = await withRetry(() => geminiModel.generateContentStream({
+      contents,
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      generationConfig: { maxOutputTokens: 1024 },
+    }), requestId);
 
     let fullText = '';
 
-    stream.on('text', (textDelta) => {
-      fullText += textDelta;
-      sendEvent('delta', { text: textDelta });
-    });
-
-    await stream.finalMessage();
+    for await (const chunk of streamResult.stream) {
+      const chunkText = chunk.text();
+      if (chunkText) {
+        fullText += chunkText;
+        sendEvent('delta', { text: chunkText });
+      }
+    }
 
     // Extract commands from the full response
     let commands = null;
@@ -520,7 +525,7 @@ app.post('/api/chat/stream', apiLimiter, async (req, res) => {
 app.post('/api/composite', apiLimiter, async (req, res) => {
   const requestId = req.requestId;
 
-  if (!anthropic) {
+  if (!geminiModel) {
     return res.status(503).json({ error: 'AI assistant is not configured. Image uploads still work normally.', requestId });
   }
 
@@ -533,7 +538,7 @@ app.post('/api/composite', apiLimiter, async (req, res) => {
   function parseDataURL(dataUrl) {
     const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
     if (!match) return null;
-    return { media_type: match[1], data: match[2] };
+    return { mimeType: match[1], data: match[2] };
   }
 
   const base = parseDataURL(baseImage);
@@ -547,15 +552,7 @@ app.post('/api/composite', apiLimiter, async (req, res) => {
     ? `The user wants to composite the second image onto the first with these instructions: "${instructions}"`
     : 'Composite the second image onto the first. Identify the main subject/object in the second image and place it naturally on the base image.';
 
-  try {
-    // Resize both images for the API
-    const optimizedBase = await resizeForApi(base.data, base.media_type);
-    const optimizedDropped = await resizeForApi(dropped.data, dropped.media_type);
-
-    const response = await withRetry(() => anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: `You are an image compositing assistant. You receive two images:
+  const compositeSystemPrompt = `You are an image compositing assistant. You receive two images:
 1. The BASE image (first image) - the background/canvas
 2. The DROPPED image (second image) - contains a subject to composite onto the base
 
@@ -571,23 +568,29 @@ The JSON must have these fields:
 
 Example:
 <composite>{"x": 65, "y": 40, "scale": 0.25, "description": "Placed the cat on the right side of the couch"}</composite>
-I identified a cat in the dropped image and placed it on the couch in the base image, scaled to look natural.`,
-      messages: [
+I identified a cat in the dropped image and placed it on the couch in the base image, scaled to look natural.`;
+
+  try {
+    // Resize both images for the API
+    const optimizedBase = await resizeForApi(base.data, base.mimeType);
+    const optimizedDropped = await resizeForApi(dropped.data, dropped.mimeType);
+
+    const response = await withRetry(() => geminiModel.generateContent({
+      contents: [
         {
           role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: optimizedBase.media_type, data: optimizedBase.data } },
-            { type: 'image', source: { type: 'base64', media_type: optimizedDropped.media_type, data: optimizedDropped.data } },
-            { type: 'text', text: userPrompt },
+          parts: [
+            { inlineData: { mimeType: optimizedBase.mimeType, data: optimizedBase.data } },
+            { inlineData: { mimeType: optimizedDropped.mimeType, data: optimizedDropped.data } },
+            { text: userPrompt },
           ],
         },
       ],
+      systemInstruction: { parts: [{ text: compositeSystemPrompt }] },
+      generationConfig: { maxOutputTokens: 1024 },
     }), requestId);
 
-    const text = response.content
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('');
+    const text = response.response.text();
 
     let compositeData = null;
     const cmdMatch = text.match(/<composite>([\s\S]*?)<\/composite>/);
@@ -613,23 +616,28 @@ app.use((err, _req, res, _next) => {
   res.status(400).json({ error: err.message });
 });
 
-const server = app.listen(config.port, () => {
-  console.log(`Server running at http://localhost:${config.port}`);
-});
+// Export app for testing; only listen when run directly
+module.exports = app;
 
-// Graceful shutdown on SIGTERM/SIGINT
-function gracefulShutdown(signal) {
-  console.log(`${signal} received, shutting down gracefully...`);
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
+if (require.main === module) {
+  const server = app.listen(config.port, () => {
+    console.log(`Server running at http://localhost:${config.port}`);
   });
-  // Force exit after 10 seconds if connections don't drain
-  setTimeout(() => {
-    console.error('Forced shutdown after timeout');
-    process.exit(1);
-  }, 10000).unref();
-}
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  // Graceful shutdown on SIGTERM/SIGINT
+  function gracefulShutdown(signal) {
+    console.log(`${signal} received, shutting down gracefully...`);
+    server.close(() => {
+      console.log('HTTP server closed');
+      process.exit(0);
+    });
+    // Force exit after 10 seconds if connections don't drain
+    setTimeout(() => {
+      console.error('Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000).unref();
+  }
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}

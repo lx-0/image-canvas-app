@@ -6,27 +6,22 @@ const fs = require('fs');
 const sharp = require('sharp');
 
 // Ensure the server doesn't use a real API key on load
-delete process.env.ANTHROPIC_API_KEY;
+delete process.env.GEMINI_API_KEY;
 
 const app = require('./server');
 
-// Inject a mock Anthropic client for chat/composite tests
-const mockAnthropicClient = {
-  messages: {
-    create: async () => ({
-      content: [{ type: 'text', text: '<commands>[{"action":"grayscale"}]</commands>\nConverted to grayscale.' }],
-    }),
-    stream: () => {
-      const obj = {
-        on(event, cb) {
-          if (event === 'text') cb('Hello from stream');
-          return obj;
-        },
-        finalMessage: async () => ({}),
-      };
-      return obj;
+// Inject a mock Gemini model for chat/composite tests
+const mockGeminiModel = {
+  generateContent: async () => ({
+    response: {
+      text: () => '<commands>[{"action":"grayscale"}]</commands>\nConverted to grayscale.',
     },
-  },
+  }),
+  generateContentStream: async () => ({
+    stream: (async function* () {
+      yield { text: () => 'Hello from stream' };
+    })(),
+  }),
 };
 
 // Create a minimal valid PNG in a temp dir for upload tests
@@ -103,8 +98,8 @@ describe('Upload endpoint', () => {
 
 describe('Chat endpoint', () => {
   it('POST /api/chat returns 503 when no API key configured', async () => {
-    // With no API key, anthropic client is null
-    app._setAnthropicClient(null);
+    // With no API key, gemini model is null
+    app._setGeminiModel(null);
     const res = await request(app)
       .post('/api/chat')
       .send({ messages: [{ role: 'user', content: 'hello' }] });
@@ -113,7 +108,7 @@ describe('Chat endpoint', () => {
   });
 
   it('POST /api/chat with mock client returns response and commands', async () => {
-    app._setAnthropicClient(mockAnthropicClient);
+    app._setGeminiModel(mockGeminiModel);
     const res = await request(app)
       .post('/api/chat')
       .send({
@@ -126,7 +121,7 @@ describe('Chat endpoint', () => {
   });
 
   it('POST /api/chat with empty messages returns 400', async () => {
-    app._setAnthropicClient(mockAnthropicClient);
+    app._setGeminiModel(mockGeminiModel);
     const res = await request(app)
       .post('/api/chat')
       .send({ messages: [] });
@@ -135,7 +130,7 @@ describe('Chat endpoint', () => {
   });
 
   it('POST /api/chat with no messages field returns 400', async () => {
-    app._setAnthropicClient(mockAnthropicClient);
+    app._setGeminiModel(mockGeminiModel);
     const res = await request(app)
       .post('/api/chat')
       .send({});
@@ -145,7 +140,7 @@ describe('Chat endpoint', () => {
 
 describe('Composite endpoint', () => {
   it('POST /api/composite without images returns 400', async () => {
-    app._setAnthropicClient(mockAnthropicClient);
+    app._setGeminiModel(mockGeminiModel);
     const res = await request(app)
       .post('/api/composite')
       .send({});
