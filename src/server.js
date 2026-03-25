@@ -854,6 +854,198 @@ I identified a cat in the dropped image and placed it on the couch in the base i
   }
 });
 
+// ── Server-side image processing ──────────────────────────────────────
+// POST /api/process
+// Accepts an image + a list of operations (same command format the AI returns)
+// and executes them server-side using Sharp for higher quality results.
+//
+// Body (JSON): { image: "<base64 data-URL or raw base64>", operations: [...] }
+//   OR multipart: field "image" (file) + field "operations" (JSON string)
+//
+// Response: { image: "data:image/png;base64,..." } or saves to disk when
+//           "save" field is truthy (returns { filename, path }).
+
+const processUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  },
+  limits: { fileSize: config.maxFileSize },
+});
+
+app.post('/api/process', processUpload.single('image'), async (req, res) => {
+  const requestId = req.requestId;
+  try {
+    // ── Parse input image ───────────────────────────────────────────
+    let imageBuffer;
+    if (req.file) {
+      imageBuffer = req.file.buffer;
+    } else if (req.body && req.body.image) {
+      const raw = req.body.image.replace(/^data:image\/\w+;base64,/, '');
+      imageBuffer = Buffer.from(raw, 'base64');
+    } else {
+      return res.status(400).json({ error: 'No image provided. Send as base64 in "image" field or as multipart file.', requestId });
+    }
+
+    // ── Parse operations ────────────────────────────────────────────
+    let operations;
+    if (typeof req.body.operations === 'string') {
+      operations = JSON.parse(req.body.operations);
+    } else if (Array.isArray(req.body.operations)) {
+      operations = req.body.operations;
+    } else {
+      return res.status(400).json({ error: '"operations" must be a JSON array of commands.', requestId });
+    }
+
+    if (!Array.isArray(operations) || operations.length === 0) {
+      return res.status(400).json({ error: '"operations" must be a non-empty array.', requestId });
+    }
+
+    // Validate all operations have an action
+    for (const op of operations) {
+      if (!op || !op.action) {
+        return res.status(400).json({ error: 'Each operation must have an "action" field.', requestId });
+      }
+    }
+
+    // ── Process pipeline ────────────────────────────────────────────
+    let pipeline = sharp(imageBuffer);
+    const metadata = await sharp(imageBuffer).metadata();
+    let currentWidth = metadata.width;
+    let currentHeight = metadata.height;
+
+    for (const op of operations) {
+      switch (op.action) {
+        case 'rotate':
+          pipeline = pipeline.rotate(op.degrees || 0);
+          if (op.degrees === 90 || op.degrees === 270 || op.degrees === -90 || op.degrees === -270) {
+            [currentWidth, currentHeight] = [currentHeight, currentWidth];
+          }
+          break;
+
+        case 'resize':
+          if (op.scale) {
+            const newW = Math.round(currentWidth * op.scale);
+            const newH = Math.round(currentHeight * op.scale);
+            pipeline = pipeline.resize(newW, newH, { kernel: sharp.kernel.lanczos3 });
+            currentWidth = newW;
+            currentHeight = newH;
+          } else if (op.width && op.height) {
+            pipeline = pipeline.resize(op.width, op.height, { kernel: sharp.kernel.lanczos3, fit: 'fill' });
+            currentWidth = op.width;
+            currentHeight = op.height;
+          }
+          break;
+
+        case 'crop': {
+          const left = Math.round((op.x / 100) * currentWidth);
+          const top = Math.round((op.y / 100) * currentHeight);
+          const width = Math.round((op.width / 100) * currentWidth);
+          const height = Math.round((op.height / 100) * currentHeight);
+          pipeline = pipeline.extract({ left, top, width, height });
+          currentWidth = width;
+          currentHeight = height;
+          break;
+        }
+
+        case 'flip':
+          if (op.direction === 'vertical') {
+            pipeline = pipeline.flip();
+          } else {
+            pipeline = pipeline.flop();
+          }
+          break;
+
+        case 'grayscale':
+          pipeline = pipeline.grayscale();
+          break;
+
+        case 'blur': {
+          const sigma = Math.max(0.3, (op.radius || 3) * 0.5);
+          pipeline = pipeline.blur(sigma);
+          break;
+        }
+
+        case 'sharpen': {
+          const amount = op.amount || 1;
+          pipeline = pipeline.sharpen({ sigma: 1, m1: amount, m2: amount * 0.5 });
+          break;
+        }
+
+        case 'brightness': {
+          // Sharp modulate uses a multiplier (1.0 = unchanged)
+          const bFactor = 1 + (op.value || 0) / 100;
+          pipeline = pipeline.modulate({ brightness: Math.max(0, bFactor) });
+          break;
+        }
+
+        case 'contrast': {
+          // Sharp linear: output = input * a + b
+          // Map -100..100 to multiplier range ~0.5..1.5
+          const cVal = (op.value || 0) / 100;
+          const a = 1 + cVal;
+          const b = -128 * cVal;
+          pipeline = pipeline.linear(a, b);
+          break;
+        }
+
+        case 'saturation': {
+          // Sharp modulate saturation multiplier (1.0 = unchanged)
+          const sFactor = 1 + (op.value || 0) / 100;
+          pipeline = pipeline.modulate({ saturation: Math.max(0, sFactor) });
+          break;
+        }
+
+        case 'hue-rotate': {
+          // Sharp modulate hue takes degrees
+          pipeline = pipeline.modulate({ hue: op.degrees || 0 });
+          break;
+        }
+
+        case 'invert':
+          pipeline = pipeline.negate({ alpha: false });
+          break;
+
+        case 'sepia':
+          // Approximate sepia via tint after desaturation
+          pipeline = pipeline.modulate({ saturation: 0.3 }).tint({ r: 112, g: 66, b: 20 });
+          break;
+
+        case 'vignette':
+        case 'shadows-highlights':
+        case 'addText':
+          // These require pixel-level or compositing ops beyond Sharp's pipeline.
+          // We skip them server-side with a note in the response.
+          logInfo(requestId, `Skipping "${op.action}" — not supported in server-side processing`);
+          break;
+
+        default:
+          logInfo(requestId, `Unknown action "${op.action}" — skipping`);
+          break;
+      }
+    }
+
+    // ── Output ──────────────────────────────────────────────────────
+    const outputBuffer = await pipeline.png().toBuffer();
+
+    if (req.body.save) {
+      const filename = `processed-${Date.now()}-${Math.round(Math.random() * 1e6)}.png`;
+      const outputPath = path.join(uploadsDir, filename);
+      fs.writeFileSync(outputPath, outputBuffer);
+      logInfo(requestId, `Processed image saved as ${filename}`);
+      return res.json({ filename, path: `/uploads/${filename}`, requestId });
+    }
+
+    const dataUrl = `data:image/png;base64,${outputBuffer.toString('base64')}`;
+    logInfo(requestId, `Processed image (${operations.length} operations, ${outputBuffer.length} bytes)`);
+    res.json({ image: dataUrl, requestId });
+  } catch (err) {
+    logError(requestId, 'Image processing error', err);
+    res.status(500).json({ error: `Processing failed: ${err.message}`, requestId });
+  }
+});
+
 app.use((err, _req, res, _next) => {
   res.status(400).json({ error: err.message });
 });

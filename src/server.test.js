@@ -167,6 +167,127 @@ describe('Image list endpoint', () => {
   });
 });
 
+describe('Process endpoint', () => {
+  let testBase64;
+
+  beforeAll(async () => {
+    const buf = await sharp({
+      create: { width: 100, height: 80, channels: 3, background: { r: 255, g: 0, b: 0 } },
+    }).png().toBuffer();
+    testBase64 = `data:image/png;base64,${buf.toString('base64')}`;
+  });
+
+  it('POST /api/process with base64 image + rotate returns data URL', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({ image: testBase64, operations: [{ action: 'rotate', degrees: 90 }] });
+    expect(res.status).toBe(200);
+    expect(res.body.image).toMatch(/^data:image\/png;base64,/);
+    // After 90° rotation, width/height should swap (100x80 → 80x100)
+    const outBuf = Buffer.from(res.body.image.replace(/^data:image\/png;base64,/, ''), 'base64');
+    const meta = await sharp(outBuf).metadata();
+    expect(meta.width).toBe(80);
+    expect(meta.height).toBe(100);
+  });
+
+  it('POST /api/process with resize returns smaller image', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({ image: testBase64, operations: [{ action: 'resize', scale: 0.5 }] });
+    expect(res.status).toBe(200);
+    const outBuf = Buffer.from(res.body.image.replace(/^data:image\/png;base64,/, ''), 'base64');
+    const meta = await sharp(outBuf).metadata();
+    expect(meta.width).toBe(50);
+    expect(meta.height).toBe(40);
+  });
+
+  it('POST /api/process with crop returns cropped region', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({ image: testBase64, operations: [{ action: 'crop', x: 0, y: 0, width: 50, height: 50 }] });
+    expect(res.status).toBe(200);
+    const outBuf = Buffer.from(res.body.image.replace(/^data:image\/png;base64,/, ''), 'base64');
+    const meta = await sharp(outBuf).metadata();
+    expect(meta.width).toBe(50);
+    expect(meta.height).toBe(40);
+  });
+
+  it('POST /api/process with grayscale returns image', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({ image: testBase64, operations: [{ action: 'grayscale' }] });
+    expect(res.status).toBe(200);
+    expect(res.body.image).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it('POST /api/process with multiple operations chains correctly', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({
+        image: testBase64,
+        operations: [
+          { action: 'grayscale' },
+          { action: 'resize', width: 20, height: 20 },
+          { action: 'flip', direction: 'horizontal' },
+        ],
+      });
+    expect(res.status).toBe(200);
+    const outBuf = Buffer.from(res.body.image.replace(/^data:image\/png;base64,/, ''), 'base64');
+    const meta = await sharp(outBuf).metadata();
+    expect(meta.width).toBe(20);
+    expect(meta.height).toBe(20);
+  });
+
+  it('POST /api/process with multipart file upload works', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .attach('image', testImagePath)
+      .field('operations', JSON.stringify([{ action: 'blur', radius: 2 }]));
+    expect(res.status).toBe(200);
+    expect(res.body.image).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it('POST /api/process with no image returns 400', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({ operations: [{ action: 'grayscale' }] });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/no image/i);
+  });
+
+  it('POST /api/process with no operations returns 400', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({ image: testBase64 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/operations/i);
+  });
+
+  it('POST /api/process with empty operations returns 400', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({ image: testBase64, operations: [] });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/process with save=true writes to disk', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({ image: testBase64, operations: [{ action: 'invert' }], save: true });
+    expect(res.status).toBe(200);
+    expect(res.body.filename).toMatch(/^processed-/);
+    expect(res.body.path).toMatch(/^\/uploads\//);
+  });
+
+  it('POST /api/process skips unsupported actions gracefully', async () => {
+    const res = await request(app)
+      .post('/api/process')
+      .send({ image: testBase64, operations: [{ action: 'vignette', strength: 50 }, { action: 'grayscale' }] });
+    expect(res.status).toBe(200);
+    expect(res.body.image).toMatch(/^data:image\/png;base64,/);
+  });
+});
+
 describe('Static files', () => {
   it('GET / returns HTML', async () => {
     const res = await request(app).get('/');
