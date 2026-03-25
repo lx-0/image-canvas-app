@@ -30,6 +30,7 @@
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="draw-btn" class="toolbar-btn" disabled title="Freehand draw (D)" aria-label="Toggle freehand drawing mode (D)">✏ Draw <span class="shortcut">D</span></button>
       <button id="select-btn" class="toolbar-btn" disabled title="Select &amp; Crop (S)" aria-label="Toggle rectangular selection mode (S)">⬚ Select <span class="shortcut">S</span></button>
+      <button id="filter-btn" class="toolbar-btn" disabled title="Adjust filters (F)" aria-label="Toggle filter adjustment panel (F)">◐ Filters <span class="shortcut">F</span></button>
     </div>
     <button id="theme-toggle" class="toolbar-btn" title="Toggle light/dark theme (Ctrl+Shift+T)" aria-label="Toggle light or dark theme">
       <span id="theme-icon">☀</span>
@@ -112,6 +113,14 @@
             <input type="range" id="brush-opacity" min="0.1" max="1" step="0.1" value="1" aria-label="Brush opacity" />
             <span id="brush-opacity-value">100%</span>
           </div>
+        </div>
+      </div>
+      <div id="filter-panel" aria-label="Filter adjustments">
+        <div id="filter-sliders"></div>
+        <div class="filter-actions">
+          <button id="filter-reset-btn" class="filter-action-btn" aria-label="Reset all filters to defaults">Reset</button>
+          <button id="filter-cancel-btn" class="filter-action-btn" aria-label="Cancel filter adjustments">Cancel</button>
+          <button id="filter-apply-btn" class="filter-action-btn filter-apply" aria-label="Apply filter adjustments">Apply</button>
         </div>
       </div>
       <div id="select-toolbar" aria-label="Selection actions">
@@ -220,6 +229,7 @@
       <div class="shortcut-row"><span class="label">Reset zoom</span><kbd>Ctrl+0</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle draw</span><kbd>D</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle select</span><kbd>S</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle filters</span><kbd>F</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle theme</span><kbd>Ctrl+Shift+T</kbd></div>

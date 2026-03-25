@@ -6,6 +6,7 @@ const { canvas, ctx, container, statusEl, undoBtn, redoBtn, saveBtn,
 
 const drawBtn = document.getElementById('draw-btn');
 const selectBtn = document.getElementById('select-btn');
+const filterBtn = document.getElementById('filter-btn');
 
 // Undo/Redo
 export function saveState() {
@@ -49,6 +50,7 @@ export function updateUndoRedoButtons() {
   saveBtn.disabled = !state.currentImg;
   if (drawBtn) drawBtn.disabled = !state.currentImg;
   if (selectBtn) selectBtn.disabled = !state.currentImg;
+  if (filterBtn) filterBtn.disabled = !state.currentImg;
 }
 
 // Canvas drawing

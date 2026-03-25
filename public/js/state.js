@@ -100,4 +100,7 @@ export const state = {
   selStartX: 0,
   selStartY: 0,
   selRect: null, // { x, y, w, h } in canvas pixels
+
+  // Filter panel
+  filterMode: false,
 };

@@ -15,6 +15,7 @@ import { initTransformHandles } from './transform.js'; // Resize handles
 import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
 import { initCropPresets } from './crop-presets.js';
+import { initFilterPanel, toggleFilterPanel, isFilterPanelOpen, closeFilterPanel } from './filter-panel.js';
 
 const { form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
         exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
@@ -335,6 +336,10 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (e.key === 'Escape') {
+    if (isFilterPanelOpen()) {
+      closeFilterPanel(false);
+      return;
+    }
     if (shortcutsOverlay.classList.contains('visible')) {
       closeShortcutsOverlay();
       return;
@@ -344,6 +349,12 @@ document.addEventListener('keydown', (e) => {
       state.pendingDeleteUrl = null;
       return;
     }
+  }
+
+  if (e.key === 'f' && !isTyping && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    toggleFilterPanel();
+    return;
   }
 
   if (e.key === '/' && !isTyping && !e.ctrlKey && !e.metaKey) {
@@ -372,6 +383,9 @@ initTransformHandles();
 
 // --- AI crop preset buttons ---
 initCropPresets();
+
+// --- Filter adjustment panel ---
+initFilterPanel();
 
 // --- Mobile touch gestures ---
 (function() {
