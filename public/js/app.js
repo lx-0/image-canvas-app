@@ -224,6 +224,24 @@ container.addEventListener('drop', (e) => {
   compositeImages(file, instructions);
 });
 
+// --- Clipboard paste to upload ---
+document.addEventListener('paste', (e) => {
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (file) uploadAndRender(file);
+      return;
+    }
+  }
+});
+
 // --- Keyboard shortcuts ---
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
