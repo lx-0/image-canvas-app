@@ -18,6 +18,7 @@ import { addToGallery, renderGallery } from './gallery.js';
 import { initCropPresets } from './crop-presets.js';
 import { initFilterPanel, toggleFilterPanel, isFilterPanelOpen, closeFilterPanel } from './filter-panel.js';
 import { initLayersFromImage, initLayersPanel, toggleLayersPanel, compositeLayers } from './layers.js';
+import { saveProject, openProject } from './project-io.js';
 
 let form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
     exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
@@ -268,6 +269,16 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     redo();
   }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
+    e.preventDefault();
+    saveProject();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'O') {
+    e.preventDefault();
+    openProject();
+    return;
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
     openExportDialog();
@@ -404,6 +415,10 @@ initFilterPanel();
 
 // --- Layers panel ---
 initLayersPanel();
+
+// --- Project save/load buttons ---
+els.saveProjectBtn.addEventListener('click', saveProject);
+els.openProjectBtn.addEventListener('click', openProject);
 
 // --- Register service worker ---
 if ('serviceWorker' in navigator) {

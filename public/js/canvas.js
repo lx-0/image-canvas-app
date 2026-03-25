@@ -84,6 +84,8 @@ export function updateUndoRedoButtons() {
   if (textBtn) textBtn.disabled = !hasContent;
   if (filterBtn) filterBtn.disabled = !hasContent;
   if (layersBtn) layersBtn.disabled = !hasContent;
+  const saveProjectBtn = document.getElementById('save-project-btn');
+  if (saveProjectBtn) saveProjectBtn.disabled = !hasContent;
 }
 
 // --- Canvas drawing ---
