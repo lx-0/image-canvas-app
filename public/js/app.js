@@ -17,6 +17,7 @@ import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
 import { initCropPresets } from './crop-presets.js';
 import { initFilterPanel, toggleFilterPanel, isFilterPanelOpen, closeFilterPanel } from './filter-panel.js';
+import { initFilterPresets } from './filter-presets.js';
 import { initLayersFromImage, initLayersPanel, toggleLayersPanel, compositeLayers } from './layers.js';
 import { saveProject, openProject } from './project-io.js';
 
@@ -412,6 +413,7 @@ initCropPresets();
 
 // --- Filter adjustment panel ---
 initFilterPanel();
+initFilterPresets();
 
 // --- Layers panel ---
 initLayersPanel();
