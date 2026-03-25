@@ -144,6 +144,16 @@
       <div id="chat-actions">
         <button id="describe-btn" title="Analyze image: colors, objects, composition, and suggested edits" aria-label="Describe and analyze image">🔍 Describe Image</button>
       </div>
+      <div id="crop-presets" aria-label="Quick crop presets">
+        <span class="crop-presets-label">Smart Crop</span>
+        <div class="crop-presets-btns">
+          <button class="crop-preset-btn" data-ratio="1:1" title="Crop to square (1:1)" aria-label="Smart crop to 1:1 aspect ratio">1:1</button>
+          <button class="crop-preset-btn" data-ratio="4:3" title="Crop to 4:3 landscape" aria-label="Smart crop to 4:3 aspect ratio">4:3</button>
+          <button class="crop-preset-btn" data-ratio="16:9" title="Crop to 16:9 widescreen" aria-label="Smart crop to 16:9 aspect ratio">16:9</button>
+          <button class="crop-preset-btn" data-ratio="9:16" title="Crop to 9:16 vertical/stories" aria-label="Smart crop to 9:16 aspect ratio">9:16</button>
+          <button class="crop-preset-btn" data-ratio="4:5" title="Crop to 4:5 portrait" aria-label="Smart crop to 4:5 aspect ratio">4:5</button>
+        </div>
+      </div>
       <div id="chat-input-area">
         <label for="chat-input" class="sr-only">Chat with AI assistant</label>
         <textarea id="chat-input" placeholder="Ask me to edit the image…" rows="1" aria-label="Type a message to the AI assistant"></textarea>

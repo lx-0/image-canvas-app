@@ -14,6 +14,7 @@ import { setSelectMode } from './select.js'; // Rectangular selection tool
 import { initTransformHandles } from './transform.js'; // Resize handles
 import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
+import { initCropPresets } from './crop-presets.js';
 
 const { form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
         exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
@@ -368,6 +369,9 @@ document.addEventListener('keydown', (e) => {
 
 // --- Transform handles (resize by dragging) ---
 initTransformHandles();
+
+// --- AI crop preset buttons ---
+initCropPresets();
 
 // --- Mobile touch gestures ---
 (function() {
