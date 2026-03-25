@@ -29,6 +29,14 @@ export function setDrawingMode(active) {
     container.classList.remove('select-mode');
     const selToolbar = document.getElementById('select-toolbar');
     if (selToolbar) selToolbar.classList.remove('visible');
+    // Deactivate text mode
+    state.textMode = false;
+    state.isTextEditing = false;
+    const textBtnEl = document.getElementById('text-btn');
+    if (textBtnEl) textBtnEl.classList.remove('active');
+    container.classList.remove('text-mode');
+    const textPanelEl = document.getElementById('text-panel');
+    if (textPanelEl) textPanelEl.classList.remove('visible');
   }
   if (!active) {
     state.isDrawing = false;

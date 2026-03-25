@@ -7,6 +7,7 @@ const { canvas, ctx, container, statusEl, undoBtn, redoBtn, saveBtn,
 
 const drawBtn = document.getElementById('draw-btn');
 const selectBtn = document.getElementById('select-btn');
+const textBtn = document.getElementById('text-btn');
 const filterBtn = document.getElementById('filter-btn');
 const layersBtn = document.getElementById('layers-btn');
 
@@ -80,6 +81,7 @@ export function updateUndoRedoButtons() {
   saveBtn.disabled = !hasContent;
   if (drawBtn) drawBtn.disabled = !hasContent;
   if (selectBtn) selectBtn.disabled = !hasContent;
+  if (textBtn) textBtn.disabled = !hasContent;
   if (filterBtn) filterBtn.disabled = !hasContent;
   if (layersBtn) layersBtn.disabled = !hasContent;
 }

@@ -556,6 +556,95 @@ canvas {
   min-width: 32px;
 }
 
+/* Text tool panel */
+#text-panel {
+  display: none;
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--zoom-bar-bg);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 10px;
+  padding: 10px 14px;
+  z-index: 6;
+  user-select: none;
+  gap: 12px;
+  align-items: center;
+  backdrop-filter: blur(8px);
+}
+
+#text-panel.visible {
+  display: flex;
+}
+
+#text-font {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#text-color {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  background: transparent;
+}
+
+#text-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+#text-color::-webkit-color-swatch {
+  border: 1.5px solid var(--bg-interactive-hover);
+  border-radius: 50%;
+}
+
+.text-style-btns,
+.text-align-btns {
+  display: flex;
+  gap: 2px;
+}
+
+.text-style-btn,
+.text-align-btn {
+  background: transparent;
+  border: 1.5px solid var(--bg-interactive-hover);
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.text-style-btn:hover,
+.text-align-btn:hover {
+  background: var(--bg-interactive-hover);
+}
+
+.text-style-btn.active,
+.text-align-btn.active {
+  border-color: var(--accent);
+  background: var(--bg-interactive);
+}
+
+/* Text mode cursor */
+#canvas-container.text-mode canvas {
+  cursor: text;
+}
+
 /* Selection mode cursor */
 #canvas-container.select-mode canvas {
   cursor: crosshair;
@@ -1805,6 +1894,13 @@ canvas {
   }
 
   #draw-panel.visible {
+    flex-wrap: wrap;
+    bottom: 52px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  #text-panel.visible {
     flex-wrap: wrap;
     bottom: 52px;
     padding: 8px 10px;

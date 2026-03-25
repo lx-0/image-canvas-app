@@ -11,6 +11,7 @@ import './analyze.js'; // Image analysis / describe button
 import './context-menu.js'; // Canvas right-click context menu
 import { setDrawingMode } from './draw.js'; // Freehand drawing tool
 import { setSelectMode } from './select.js'; // Rectangular selection tool
+import { setTextMode } from './text.js'; // Text placement tool
 import { initTransformHandles } from './transform.js'; // Resize handles
 import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
@@ -466,6 +467,7 @@ if ('serviceWorker' in navigator) {
     if (!state.currentImg) return;
     if (state.drawingMode && e.touches.length === 1) return; // drawing handles single-finger
     if (state.selectMode && e.touches.length === 1) return; // selection handles single-finger
+    if (state.textMode && e.touches.length === 1) return; // text handles single-finger
     if (e.touches.length === 2) {
       e.preventDefault();
       const t1 = e.touches[0], t2 = e.touches[1];
@@ -488,6 +490,7 @@ if ('serviceWorker' in navigator) {
     if (!state.currentImg) return;
     if (state.drawingMode && e.touches.length === 1) return; // drawing handles single-finger
     if (state.selectMode && e.touches.length === 1) return; // selection handles single-finger
+    if (state.textMode && e.touches.length === 1) return; // text handles single-finger
     if (e.touches.length === 2 && touchState.active) {
       e.preventDefault();
       const t1 = e.touches[0], t2 = e.touches[1];

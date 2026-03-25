@@ -22,6 +22,14 @@ export function setSelectMode(active) {
   if (active) {
     // Deactivate drawing mode when entering selection
     setDrawingMode(false);
+    // Deactivate text mode
+    state.textMode = false;
+    state.isTextEditing = false;
+    const textBtnEl = document.getElementById('text-btn');
+    if (textBtnEl) textBtnEl.classList.remove('active');
+    container.classList.remove('text-mode');
+    const textPanelEl = document.getElementById('text-panel');
+    if (textPanelEl) textPanelEl.classList.remove('visible');
   }
   if (!active) {
     clearSelection();

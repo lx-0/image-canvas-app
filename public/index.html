@@ -30,6 +30,7 @@
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="draw-btn" class="toolbar-btn" disabled title="Freehand draw (D)" aria-label="Toggle freehand drawing mode (D)">✏ Draw <span class="shortcut">D</span></button>
       <button id="select-btn" class="toolbar-btn" disabled title="Select &amp; Crop (S)" aria-label="Toggle rectangular selection mode (S)">⬚ Select <span class="shortcut">S</span></button>
+      <button id="text-btn" class="toolbar-btn" disabled title="Add text (T)" aria-label="Toggle text tool (T)">𝐓 Text <span class="shortcut">T</span></button>
       <button id="filter-btn" class="toolbar-btn" disabled title="Adjust filters (F)" aria-label="Toggle filter adjustment panel (F)">◐ Filters <span class="shortcut">F</span></button>
       <button id="layers-btn" class="toolbar-btn" disabled title="Layers (L)" aria-label="Toggle layers panel (L)">◫ Layers <span class="shortcut">L</span></button>
     </div>
@@ -113,6 +114,44 @@
           <div class="opacity-row">
             <input type="range" id="brush-opacity" min="0.1" max="1" step="0.1" value="1" aria-label="Brush opacity" />
             <span id="brush-opacity-value">100%</span>
+          </div>
+        </div>
+      </div>
+      <div id="text-panel" aria-label="Text controls">
+        <div class="draw-section">
+          <span class="draw-label">Font</span>
+          <select id="text-font" aria-label="Font family">
+            <option value="Arial" selected>Arial</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Verdana">Verdana</option>
+          </select>
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">Size</span>
+          <div class="opacity-row">
+            <input type="range" id="text-size" min="8" max="200" value="32" aria-label="Font size" />
+            <span id="text-size-value">32px</span>
+          </div>
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">Color</span>
+          <input type="color" id="text-color" value="#ffffff" aria-label="Text color" />
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">Style</span>
+          <div class="text-style-btns">
+            <button id="text-bold-btn" class="text-style-btn" title="Bold" aria-label="Toggle bold"><b>B</b></button>
+            <button id="text-italic-btn" class="text-style-btn" title="Italic" aria-label="Toggle italic"><i>I</i></button>
+          </div>
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">Align</span>
+          <div class="text-align-btns">
+            <button class="text-align-btn active" data-align="left" title="Align left" aria-label="Align left">≡</button>
+            <button class="text-align-btn" data-align="center" title="Align center" aria-label="Align center">☰</button>
+            <button class="text-align-btn" data-align="right" title="Align right" aria-label="Align right">≡</button>
           </div>
         </div>
       </div>
@@ -318,6 +357,7 @@
       <div class="shortcut-row"><span class="label">Reset zoom</span><kbd>Ctrl+0</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle draw</span><kbd>D</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle select</span><kbd>S</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle text</span><kbd>T</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle filters</span><kbd>F</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle layers</span><kbd>L</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>

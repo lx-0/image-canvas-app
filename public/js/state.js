@@ -109,6 +109,16 @@ export const state = {
   activeLayerIndex: 0,
   layersPanelVisible: false,
 
+  // Text tool
+  textMode: false,
+  isTextEditing: false,
+  textFont: 'Arial',
+  textSize: 32,
+  textColor: '#ffffff',
+  textBold: false,
+  textItalic: false,
+  textAlign: 'left',
+
   // Chat image attachments (gallery images to include in next message)
   chatAttachedImages: [],
 };
