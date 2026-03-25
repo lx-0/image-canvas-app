@@ -387,6 +387,11 @@ initCropPresets();
 // --- Filter adjustment panel ---
 initFilterPanel();
 
+// --- Register service worker ---
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 // --- Mobile touch gestures ---
 (function() {
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
