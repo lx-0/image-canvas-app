@@ -314,6 +314,16 @@ const uploadLimiter = rateLimit({
   },
 });
 
+const errorReportLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({ error: 'Too many error reports' });
+  },
+});
+
 // Magic byte signatures for common image formats
 const IMAGE_SIGNATURES = [
   { ext: 'jpg', bytes: [0xFF, 0xD8, 0xFF] },
@@ -580,6 +590,26 @@ app.get('/admin', (req, res) => {
 
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Client-side error reporting endpoint
+app.post('/api/errors', errorReportLimiter, express.json({ limit: '4kb' }), (req, res) => {
+  const requestId = req.requestId || generateRequestId();
+  const { message, source, lineno, colno, stack, type } = req.body || {};
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'Missing error message' });
+  }
+  const safeMessage = message.slice(0, 500);
+  const safeSource = typeof source === 'string' ? source.slice(0, 200) : '';
+  const safeStack = typeof stack === 'string' ? stack.slice(0, 1000) : '';
+  logError(requestId, `[CLIENT ${type || 'error'}] ${safeMessage}`, {
+    message: safeMessage,
+    source: safeSource,
+    lineno,
+    colno,
+    stack: safeStack,
+  });
+  res.status(204).end();
 });
 
 app.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {

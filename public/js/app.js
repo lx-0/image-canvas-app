@@ -17,9 +17,14 @@ import { addToGallery, renderGallery } from './gallery.js';
 import { initCropPresets } from './crop-presets.js';
 import { initFilterPanel, toggleFilterPanel, isFilterPanelOpen, closeFilterPanel } from './filter-panel.js';
 
-const { form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
-        exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
-        zoomInBtn, zoomOutBtn } = els;
+let form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
+    exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
+    zoomInBtn, zoomOutBtn;
+
+try {
+  ({ form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
+     exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
+     zoomInBtn, zoomOutBtn } = els);
 
 // --- Upload and render an image ---
 async function uploadAndRender(file) {
@@ -507,3 +512,21 @@ if ('serviceWorker' in navigator) {
     if (!isMobile()) chatPanel.classList.remove('collapsed');
   });
 })();
+
+} catch (initError) {
+  // Report initialization failure and show user-friendly error page
+  if (typeof window.__reportError === 'function') {
+    window.__reportError({ type: 'init', message: initError.message, stack: initError.stack || '' });
+  }
+  const mainArea = document.getElementById('main-area');
+  if (mainArea) {
+    mainArea.innerHTML =
+      '<div style="max-width:480px;margin:80px auto;padding:32px;text-align:center;font-family:system-ui,sans-serif;">' +
+      '<h2 style="margin-bottom:16px;">Failed to Load Application</h2>' +
+      '<p style="margin-bottom:16px;">An unexpected error occurred while starting the application.</p>' +
+      '<button onclick="location.reload()" style="padding:8px 24px;font-size:14px;cursor:pointer;border:1px solid #666;border-radius:4px;background:#e94560;color:#fff;">Reload Page</button>' +
+      '</div>';
+  }
+  /* eslint-disable-next-line no-undef */
+  console.error('App initialization failed:', initError);
+}

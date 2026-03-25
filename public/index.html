@@ -223,6 +223,74 @@
     </div>
   </div>
 
+  <script>
+    // Feature detection — must run before ES module import
+    (function() {
+      var missing = [];
+      try { var c = document.createElement('canvas'); if (!c.getContext || !c.getContext('2d')) missing.push('Canvas 2D'); } catch(e) { missing.push('Canvas 2D'); }
+      if (typeof fetch !== 'function') missing.push('Fetch API');
+      if (!('noModule' in HTMLScriptElement.prototype)) missing.push('ES Modules');
+      if (missing.length > 0) {
+        document.getElementById('main-area').innerHTML =
+          '<div style="max-width:480px;margin:80px auto;padding:32px;text-align:center;font-family:system-ui,sans-serif;">' +
+          '<h2 style="margin-bottom:16px;">Browser Not Supported</h2>' +
+          '<p>This application requires features your browser does not support:</p>' +
+          '<ul style="list-style:none;padding:0;margin:16px 0;">' +
+          missing.map(function(f) { return '<li style="margin:4px 0;color:#e94560;"><strong>' + f + '</strong></li>'; }).join('') +
+          '</ul>' +
+          '<p>Please update your browser or try <a href="https://www.google.com/chrome/">Chrome</a>, <a href="https://www.mozilla.org/firefox/">Firefox</a>, or <a href="https://www.microsoft.com/edge">Edge</a>.</p>' +
+          '</div>';
+        throw new Error('Browser not supported: ' + missing.join(', '));
+      }
+    })();
+  </script>
+  <script>
+    // Global error handlers — log unhandled errors to POST /api/errors (rate-limited client-side)
+    (function() {
+      var errorCount = 0;
+      var ERROR_LIMIT = 10;
+      var ERROR_WINDOW = 60000;
+      var windowStart = Date.now();
+
+      function canReport() {
+        var now = Date.now();
+        if (now - windowStart > ERROR_WINDOW) { errorCount = 0; windowStart = now; }
+        if (errorCount >= ERROR_LIMIT) return false;
+        errorCount++;
+        return true;
+      }
+
+      function reportError(payload) {
+        if (!canReport()) return;
+        try {
+          navigator.sendBeacon('/api/errors', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+        } catch(e) {
+          // Fallback if sendBeacon unavailable
+          try { fetch('/api/errors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }); } catch(e2) { /* ignore */ }
+        }
+      }
+
+      function showErrorBanner(msg) {
+        var el = document.getElementById('error');
+        if (el) el.textContent = msg;
+      }
+
+      window.onerror = function(message, source, lineno, colno, error) {
+        reportError({ type: 'onerror', message: String(message), source: source, lineno: lineno, colno: colno, stack: error && error.stack ? error.stack : '' });
+        showErrorBanner('Something went wrong. Try refreshing the page.');
+      };
+
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event.reason;
+        var message = reason instanceof Error ? reason.message : String(reason);
+        var stack = reason instanceof Error ? reason.stack : '';
+        reportError({ type: 'unhandledrejection', message: message, stack: stack || '' });
+        showErrorBanner('Something went wrong. Try refreshing the page.');
+      });
+
+      window.__reportError = reportError;
+    })();
+  </script>
   <script type="module" src="/js/app.js"></script>
 
   <div id="shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
