@@ -24,6 +24,7 @@ const config = {
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024,
   corsOrigin: process.env.CORS_ORIGIN || '*',
   adminToken: process.env.ADMIN_TOKEN || '',
+  assetPrefix: process.env.ASSET_PREFIX || '',
 };
 
 // Structured logging with timestamps
@@ -102,7 +103,16 @@ const serverStartTime = Date.now();
 
 // Production security and performance middleware
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    const type = res.getHeader('Content-Type') || '';
+    // Skip compression for already-compressed image formats
+    if (/^image\/(jpeg|png|gif|webp|avif)/.test(type)) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+}));
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -217,6 +227,12 @@ app.use(morgan(':request-id :remote-addr - :remote-user [:date[clf]] ":method :u
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+// Client config endpoint — exposes ASSET_PREFIX for CDN-aware frontends
+app.get('/api/config', (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({ assetPrefix: config.assetPrefix });
 });
 
 // Stats endpoint — returns server and image metrics
@@ -342,8 +358,56 @@ function sanitizeFilename(filename) {
   return base.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
-app.use(express.static(path.join(__dirname, '../public')));
-app.use('/thumbnails', express.static(thumbnailsDir));
+// Static assets: JS/CSS get 1-day cache (no hashed filenames yet),
+// HTML gets short cache with revalidation
+const publicDir = path.join(__dirname, '../public');
+
+app.use(express.static(publicDir, {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.html') {
+      // HTML: short cache, always revalidate
+      res.setHeader('Cache-Control', 'public, max-age=60, must-revalidate');
+    } else if (ext === '.js' || ext === '.css') {
+      // JS/CSS: 1 day cache (increase to immutable once hashed filenames are added)
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    } else if (ext === '.json' || ext === '.webmanifest') {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    } else {
+      // Other static assets (icons, fonts): 1 week
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+    }
+  },
+}));
+
+// Service worker: must always revalidate
+app.get('/sw.js', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+  next();
+});
+
+// Uploaded images: 7-day cache with ETags for revalidation
+app.use('/uploads', express.static(uploadsDir, {
+  etag: true,
+  lastModified: true,
+  maxAge: '7d',
+  immutable: false,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+  },
+}));
+
+// Thumbnails: 7-day cache with ETags
+app.use('/thumbnails', express.static(thumbnailsDir, {
+  etag: true,
+  lastModified: true,
+  maxAge: '7d',
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+  },
+}));
 
 // Resize a base64 image to fit within Gemini API limits
 async function resizeForApi(base64Data, mediaType) {
