@@ -27,6 +27,8 @@
       <button id="undo-btn" class="toolbar-btn" disabled title="Undo (Ctrl+Z)" aria-label="Undo last action (Ctrl+Z)">↩ Undo <span class="shortcut">Ctrl+Z</span></button>
       <button id="redo-btn" class="toolbar-btn" disabled title="Redo (Ctrl+Y)" aria-label="Redo last action (Ctrl+Y)">↪ Redo <span class="shortcut">Ctrl+Y</span></button>
       <button id="save-btn" class="toolbar-btn" disabled title="Save/Download (Ctrl+S)" aria-label="Export image (Ctrl+S)">⬇ Save <span class="shortcut">Ctrl+S</span></button>
+      <span class="toolbar-separator" aria-hidden="true"></span>
+      <button id="draw-btn" class="toolbar-btn" disabled title="Freehand draw (D)" aria-label="Toggle freehand drawing mode (D)">✏ Draw <span class="shortcut">D</span></button>
     </div>
     <button id="theme-toggle" class="toolbar-btn" title="Toggle light/dark theme (Ctrl+Shift+T)" aria-label="Toggle light or dark theme">
       <span id="theme-icon">☀</span>
@@ -81,6 +83,35 @@
         <span id="zoom-level" aria-label="Current zoom level">100%</span>
         <button class="zoom-btn" id="zoom-in-btn" title="Zoom in (Ctrl++)" aria-label="Zoom in">+</button>
         <button class="zoom-btn" id="zoom-fit-btn" title="Fit to view (Ctrl+0)" aria-label="Fit image to view">⊡</button>
+      </div>
+      <div id="draw-panel" aria-label="Drawing controls">
+        <div class="draw-section">
+          <span class="draw-label">Size</span>
+          <div class="brush-sizes">
+            <button class="brush-size-btn" data-size="2" title="Small brush" aria-label="Small brush size"><span class="brush-dot" style="width:6px;height:6px"></span></button>
+            <button class="brush-size-btn active" data-size="4" title="Medium brush" aria-label="Medium brush size"><span class="brush-dot" style="width:10px;height:10px"></span></button>
+            <button class="brush-size-btn" data-size="10" title="Large brush" aria-label="Large brush size"><span class="brush-dot" style="width:16px;height:16px"></span></button>
+          </div>
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">Color</span>
+          <div class="color-swatches">
+            <button class="color-swatch active" data-color="#e94560" style="background:#e94560" aria-label="Red"></button>
+            <button class="color-swatch" data-color="#ffffff" style="background:#ffffff" aria-label="White"></button>
+            <button class="color-swatch" data-color="#000000" style="background:#000000" aria-label="Black"></button>
+            <button class="color-swatch" data-color="#3b82f6" style="background:#3b82f6" aria-label="Blue"></button>
+            <button class="color-swatch" data-color="#10b981" style="background:#10b981" aria-label="Green"></button>
+            <button class="color-swatch" data-color="#f59e0b" style="background:#f59e0b" aria-label="Yellow"></button>
+            <input type="color" id="brush-color-custom" value="#e94560" title="Custom color" aria-label="Pick custom brush color" />
+          </div>
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">Opacity</span>
+          <div class="opacity-row">
+            <input type="range" id="brush-opacity" min="0.1" max="1" step="0.1" value="1" aria-label="Brush opacity" />
+            <span id="brush-opacity-value">100%</span>
+          </div>
+        </div>
       </div>
       <div id="canvas-context-menu" role="menu" aria-label="Canvas actions">
         <button class="ctx-item" role="menuitem" data-action="undo" tabindex="-1">↩ Undo<span class="ctx-shortcut">Ctrl+Z</span></button>
@@ -168,6 +199,7 @@
       <div class="shortcut-row"><span class="label">Zoom in</span><kbd>Ctrl+=</kbd></div>
       <div class="shortcut-row"><span class="label">Zoom out</span><kbd>Ctrl+−</kbd></div>
       <div class="shortcut-row"><span class="label">Reset zoom</span><kbd>Ctrl+0</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle draw</span><kbd>D</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle theme</span><kbd>Ctrl+Shift+T</kbd></div>

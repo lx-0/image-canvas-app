@@ -85,4 +85,11 @@ export const state = {
 
   // Drag-and-drop
   dragCounter: 0,
+
+  // Drawing tool
+  drawingMode: false,
+  isDrawing: false,
+  brushSize: 4,     // default medium
+  brushColor: '#e94560',
+  brushOpacity: 1.0,
 };

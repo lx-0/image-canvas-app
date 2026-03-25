@@ -8,6 +8,7 @@ import { resizeAndDraw, resetZoomPan, saveState, undo, redo, updateUndoRedoButto
 import { loadConversation, restoreConversationUI } from './chat-persistence.js';
 import './chat.js'; // Initialize chat event listeners
 import './context-menu.js'; // Canvas right-click context menu
+import { setDrawingMode } from './draw.js'; // Freehand drawing tool
 import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
 
@@ -417,6 +418,7 @@ document.addEventListener('keydown', (e) => {
 
   container.addEventListener('touchstart', (e) => {
     if (!state.currentImg) return;
+    if (state.drawingMode && e.touches.length === 1) return; // drawing handles single-finger
     if (e.touches.length === 2) {
       e.preventDefault();
       const t1 = e.touches[0], t2 = e.touches[1];
@@ -437,6 +439,7 @@ document.addEventListener('keydown', (e) => {
 
   container.addEventListener('touchmove', (e) => {
     if (!state.currentImg) return;
+    if (state.drawingMode && e.touches.length === 1) return; // drawing handles single-finger
     if (e.touches.length === 2 && touchState.active) {
       e.preventDefault();
       const t1 = e.touches[0], t2 = e.touches[1];

@@ -4,6 +4,8 @@ import { els, state } from './state.js';
 const { canvas, ctx, container, statusEl, undoBtn, redoBtn, saveBtn,
         zoomLevelEl, zoomInBtn, zoomOutBtn, zoomFitBtn, emptyState } = els;
 
+const drawBtn = document.getElementById('draw-btn');
+
 // Undo/Redo
 export function saveState() {
   if (!state.currentImg) return;
@@ -44,6 +46,7 @@ export function updateUndoRedoButtons() {
   undoBtn.disabled = state.historyIndex <= 0;
   redoBtn.disabled = state.historyIndex >= state.historyStack.length - 1;
   saveBtn.disabled = !state.currentImg;
+  if (drawBtn) drawBtn.disabled = !state.currentImg;
 }
 
 // Canvas drawing
@@ -130,9 +133,10 @@ container.addEventListener('wheel', (e) => {
 
 container.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
 
-// Pan via middle-mouse or left-click drag when zoomed
+// Pan via middle-mouse or left-click drag when zoomed (disabled during drawing)
 container.addEventListener('mousedown', (e) => {
   if (!state.currentImg) return;
+  if (state.drawingMode && e.button === 0) return; // drawing handles left-click
   if (e.button === 1 || (e.button === 0 && state.zoomLevel !== 1)) {
     if (e.button === 0 && state.zoomLevel === 1) return;
     e.preventDefault();
