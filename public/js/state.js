@@ -41,6 +41,7 @@ export const els = {
   deleteYesBtn: document.getElementById('delete-confirm-yes'),
   deleteNoBtn: document.getElementById('delete-confirm-no'),
   shortcutsOverlay: document.getElementById('shortcuts-overlay'),
+  describeBtn: document.getElementById('describe-btn'),
   srAnnouncer: document.getElementById('sr-announcer'),
   zoomLevelEl: document.getElementById('zoom-level'),
   zoomInBtn: document.getElementById('zoom-in-btn'),

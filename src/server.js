@@ -522,6 +522,79 @@ app.post('/api/chat/stream', apiLimiter, async (req, res) => {
   }
 });
 
+const ANALYZE_SYSTEM_PROMPT = `You are an expert image analyst. Analyze the provided image and return a structured JSON analysis wrapped in <analysis>...</analysis> tags.
+
+Your JSON response MUST include these fields:
+- dominantColors: array of up to 5 objects, each with "hex" (string, e.g. "#3A7BD5"), "name" (human-readable color name, e.g. "Steel Blue"), and "percentage" (estimated percentage of the image this color occupies, number 0-100)
+- objects: array of strings listing detected objects, people, animals, or notable elements in the image
+- composition: object with "rule" (e.g. "rule of thirds", "centered", "symmetrical", "diagonal"), "balance" (e.g. "balanced", "left-heavy", "top-heavy"), and "notes" (brief composition observations)
+- mood: string describing the overall mood or atmosphere (e.g. "warm and inviting", "dramatic and moody")
+- suggestedEdits: array of objects, each with "action" (a specific edit action like "brightness", "contrast", "crop", "saturation"), "description" (what the edit would improve), and "parameters" (object with suggested parameter values matching the canvas command format)
+
+Example response:
+<analysis>{"dominantColors":[{"hex":"#2C5F8A","name":"Ocean Blue","percentage":35},{"hex":"#F5E6CC","name":"Warm Sand","percentage":25}],"objects":["beach","ocean waves","palm tree","sunset sky"],"composition":{"rule":"rule of thirds","balance":"balanced","notes":"Horizon sits on upper third line, palm tree anchors left third"},"mood":"peaceful and warm","suggestedEdits":[{"action":"contrast","description":"Boost contrast to make the sunset colors pop","parameters":{"value":20}},{"action":"saturation","description":"Increase color vibrancy slightly","parameters":{"value":15}}]}</analysis>
+
+Always respond with the analysis JSON block only. Be precise with hex color values. Keep object lists concise but thorough. Suggested edits should be practical improvements, not drastic changes.`;
+
+app.post('/api/analyze', apiLimiter, async (req, res) => {
+  const requestId = req.requestId;
+
+  if (!geminiModel) {
+    return res.status(503).json({ error: 'AI assistant is not configured.', requestId });
+  }
+
+  const { imageData } = req.body;
+
+  if (!imageData) {
+    return res.status(400).json({ error: 'imageData is required', requestId });
+  }
+
+  try {
+    const match = imageData.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!match) {
+      return res.status(400).json({ error: 'Invalid image data URL', requestId });
+    }
+
+    const optimized = await resizeForApi(match[2], match[1]);
+
+    const response = await withRetry(() => geminiModel.generateContent({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: optimized.mimeType, data: optimized.data } },
+            { text: 'Analyze this image in detail.' },
+          ],
+        },
+      ],
+      systemInstruction: { parts: [{ text: ANALYZE_SYSTEM_PROMPT }] },
+      generationConfig: { maxOutputTokens: 2048 },
+    }), requestId);
+
+    const text = response.response.text();
+
+    let analysis = null;
+    const analysisMatch = text.match(/<analysis>([\s\S]*?)<\/analysis>/);
+    if (analysisMatch) {
+      try {
+        analysis = JSON.parse(analysisMatch[1]);
+      } catch (_e) {
+        // If parsing fails, return raw text
+      }
+    }
+
+    if (!analysis) {
+      return res.status(502).json({ error: 'Failed to parse image analysis', requestId });
+    }
+
+    res.json({ analysis, requestId });
+  } catch (err) {
+    const classified = classifyApiError(err);
+    logError(requestId, 'Analyze API error', err);
+    res.status(classified.status).json({ error: classified.message, retryable: classified.retryable, requestId });
+  }
+});
+
 app.post('/api/composite', apiLimiter, async (req, res) => {
   const requestId = req.requestId;
 
