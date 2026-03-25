@@ -12,6 +12,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { getDb, closeDb } = require('./db');
 
 // Configuration with defaults
 const config = {
@@ -311,25 +312,66 @@ function buildGeminiContents(messages, imageParts) {
   return contents;
 }
 
-// List uploaded images
-app.get('/api/images', (_req, res) => {
+// List uploaded images from database (with filesystem fallback for legacy files)
+app.get('/api/images', (req, res) => {
   try {
-    const files = fs.readdirSync(uploadsDir)
-      .filter((f) => /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(f))
-      .map((f) => {
-        const stat = fs.statSync(path.join(uploadsDir, f));
-        const thumbFile = `thumb_${f}`;
-        const thumbExists = fs.existsSync(path.join(thumbnailsDir, thumbFile));
-        return {
-          url: `/uploads/${f}`,
-          thumbnailUrl: thumbExists ? `/thumbnails/${thumbFile}` : null,
-          name: f,
-          size: stat.size,
-          createdAt: stat.birthtimeMs || stat.ctimeMs,
-        };
-      })
-      .sort((a, b) => b.createdAt - a.createdAt);
-    res.json({ images: files });
+    const db = getDb();
+    const rows = db.prepare(
+      `SELECT id, filename, original_name, size, width, height, created_at, thumbnail_path
+       FROM images ORDER BY created_at DESC`
+    ).all();
+
+    // Also scan filesystem for files not yet in the DB (legacy migration)
+    const dbFilenames = new Set(rows.map(r => r.filename));
+    const fsFiles = fs.readdirSync(uploadsDir)
+      .filter((f) => /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(f) && !dbFilenames.has(f));
+
+    // Insert any legacy files into DB
+    if (fsFiles.length > 0) {
+      const insert = db.prepare(
+        `INSERT OR IGNORE INTO images (filename, original_name, size, thumbnail_path)
+         VALUES (?, ?, ?, ?)`
+      );
+      const insertMany = db.transaction((files) => {
+        for (const f of files) {
+          const stat = fs.statSync(path.join(uploadsDir, f));
+          const thumbFile = `thumb_${f}`;
+          const thumbExists = fs.existsSync(path.join(thumbnailsDir, thumbFile));
+          insert.run(f, f, stat.size, thumbExists ? `/thumbnails/${thumbFile}` : null);
+        }
+      });
+      insertMany(fsFiles);
+
+      // Re-query after migration
+      const allRows = db.prepare(
+        `SELECT id, filename, original_name, size, width, height, created_at, thumbnail_path
+         FROM images ORDER BY created_at DESC`
+      ).all();
+
+      const images = allRows.map(r => ({
+        url: `/uploads/${r.filename}`,
+        thumbnailUrl: r.thumbnail_path || null,
+        name: r.filename,
+        originalName: r.original_name,
+        size: r.size,
+        width: r.width,
+        height: r.height,
+        createdAt: r.created_at,
+      }));
+      return res.json({ images });
+    }
+
+    const images = rows.map(r => ({
+      url: `/uploads/${r.filename}`,
+      thumbnailUrl: r.thumbnail_path || null,
+      name: r.filename,
+      originalName: r.original_name,
+      size: r.size,
+      width: r.width,
+      height: r.height,
+      createdAt: r.created_at,
+    }));
+    res.json({ images });
   } catch (err) {
     logError(req.requestId, 'List images error', err);
     res.json({ images: [] });
@@ -350,10 +392,19 @@ app.delete('/api/images/:filename', (req, res) => {
       // Also delete thumbnail if it exists
       const thumbPath = path.join(thumbnailsDir, `thumb_${filename}`);
       try { if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath); } catch { /* ignore */ }
-      res.json({ success: true });
     } else {
-      res.status(404).json({ error: 'File not found' });
+      return res.status(404).json({ error: 'File not found' });
     }
+
+    // Remove from database (cascades to conversations and edits)
+    try {
+      const db = getDb();
+      db.prepare('DELETE FROM images WHERE filename = ?').run(filename);
+    } catch (_dbErr) {
+      logError(req.requestId, 'DB delete error', _dbErr);
+    }
+
+    res.json({ success: true });
   } catch (err) {
     logError(req.requestId, 'Delete image error', err);
     res.status(500).json({ error: 'Failed to delete image' });
@@ -388,6 +439,10 @@ app.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {
     // Replace original with optimized version
     fs.renameSync(optimizedPath, filePath);
 
+    // Get image metadata for DB
+    const metadata = await sharp(filePath).metadata();
+    const stat = fs.statSync(filePath);
+
     // Generate 200px-wide thumbnail
     const thumbFilename = `thumb_${req.file.filename}`;
     const thumbPath = path.join(thumbnailsDir, thumbFilename);
@@ -396,6 +451,20 @@ app.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {
       .jpeg({ quality: 75 })
       .toFile(thumbPath);
 
+    // Insert into database
+    const db = getDb();
+    db.prepare(
+      `INSERT INTO images (filename, original_name, size, width, height, thumbnail_path)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(
+      req.file.filename,
+      req.file.originalname,
+      stat.size,
+      metadata.width || null,
+      metadata.height || null,
+      `/thumbnails/${thumbFilename}`
+    );
+
     res.json({
       url: `/uploads/${req.file.filename}`,
       thumbnailUrl: `/thumbnails/${thumbFilename}`,
@@ -403,6 +472,16 @@ app.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {
   } catch (err) {
     logError(req.requestId, 'Image optimization error', err);
     // Fall back to unoptimized upload if sharp fails (e.g., SVG or unsupported format)
+    // Still insert into DB with minimal info
+    try {
+      const stat = fs.statSync(filePath);
+      const db = getDb();
+      db.prepare(
+        `INSERT INTO images (filename, original_name, size) VALUES (?, ?, ?)`
+      ).run(req.file.filename, req.file.originalname, stat.size);
+    } catch (_dbErr) {
+      logError(req.requestId, 'DB insert fallback error', _dbErr);
+    }
     res.json({ url: `/uploads/${req.file.filename}` });
   }
 });
@@ -739,6 +818,7 @@ if (require.main === module) {
   function gracefulShutdown(signal) {
     console.log(`${signal} received, shutting down gracefully...`);
     server.close(() => {
+      closeDb();
       console.log('HTTP server closed');
       process.exit(0);
     });

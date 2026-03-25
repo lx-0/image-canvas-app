@@ -8,7 +8,13 @@ const sharp = require('sharp');
 // Ensure the server doesn't use a real API key on load
 delete process.env.GEMINI_API_KEY;
 
+// Use a temporary DB path for tests
+const testDbDir = path.join(__dirname, '..', '__test_data__');
+if (!fs.existsSync(testDbDir)) fs.mkdirSync(testDbDir, { recursive: true });
+process.env.DB_PATH = path.join(testDbDir, 'test.db');
+
 const app = require('./server');
+const { closeDb } = require('./db');
 
 // Inject a mock Gemini model for chat/composite tests
 const mockGeminiModel = {
@@ -41,9 +47,13 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+  closeDb();
   try {
     if (fs.existsSync(testDir)) {
       fs.rmSync(testDir, { recursive: true, force: true });
+    }
+    if (fs.existsSync(testDbDir)) {
+      fs.rmSync(testDbDir, { recursive: true, force: true });
     }
   } catch {
     // ignore cleanup errors

@@ -3,3 +3,5 @@ dist/
 .env
 public/uploads/*
 !public/uploads/.gitkeep
+public/thumbnails/
+data/
