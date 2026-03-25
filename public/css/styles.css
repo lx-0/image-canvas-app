@@ -556,6 +556,66 @@ canvas {
   min-width: 32px;
 }
 
+/* Selection mode cursor */
+#canvas-container.select-mode canvas {
+  cursor: crosshair;
+}
+
+/* Selection floating toolbar */
+#select-toolbar {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  background: var(--zoom-bar-bg);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 8px;
+  padding: 6px 10px;
+  gap: 8px;
+  align-items: center;
+  backdrop-filter: blur(8px);
+  user-select: none;
+  white-space: nowrap;
+}
+
+#select-toolbar.visible {
+  display: flex;
+}
+
+#select-dims {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+#select-crop-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#select-crop-btn:hover {
+  background: var(--accent-hover);
+}
+
+#select-cancel-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--bg-cancel);
+  color: var(--text-cancel);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#select-cancel-btn:hover {
+  background: var(--bg-cancel-hover);
+}
+
 /* Context menu */
 #canvas-context-menu {
   display: none;

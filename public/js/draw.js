@@ -19,6 +19,16 @@ export function setDrawingMode(active) {
   drawBtn.classList.toggle('active', active);
   drawPanel.classList.toggle('visible', active);
   container.classList.toggle('drawing-mode', active);
+  if (active) {
+    // Deactivate selection mode when entering drawing
+    state.selectMode = false;
+    state.selRect = null;
+    const selectBtn = document.getElementById('select-btn');
+    if (selectBtn) selectBtn.classList.remove('active');
+    container.classList.remove('select-mode');
+    const selToolbar = document.getElementById('select-toolbar');
+    if (selToolbar) selToolbar.classList.remove('visible');
+  }
   if (!active) {
     state.isDrawing = false;
   }

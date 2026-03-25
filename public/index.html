@@ -29,6 +29,7 @@
       <button id="save-btn" class="toolbar-btn" disabled title="Save/Download (Ctrl+S)" aria-label="Export image (Ctrl+S)">⬇ Save <span class="shortcut">Ctrl+S</span></button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="draw-btn" class="toolbar-btn" disabled title="Freehand draw (D)" aria-label="Toggle freehand drawing mode (D)">✏ Draw <span class="shortcut">D</span></button>
+      <button id="select-btn" class="toolbar-btn" disabled title="Select &amp; Crop (S)" aria-label="Toggle rectangular selection mode (S)">⬚ Select <span class="shortcut">S</span></button>
     </div>
     <button id="theme-toggle" class="toolbar-btn" title="Toggle light/dark theme (Ctrl+Shift+T)" aria-label="Toggle light or dark theme">
       <span id="theme-icon">☀</span>
@@ -112,6 +113,11 @@
             <span id="brush-opacity-value">100%</span>
           </div>
         </div>
+      </div>
+      <div id="select-toolbar" aria-label="Selection actions">
+        <span id="select-dims" aria-label="Selection dimensions"></span>
+        <button id="select-crop-btn" aria-label="Crop to selection">Crop</button>
+        <button id="select-cancel-btn" aria-label="Cancel selection">Cancel</button>
       </div>
       <div id="canvas-context-menu" role="menu" aria-label="Canvas actions">
         <button class="ctx-item" role="menuitem" data-action="undo" tabindex="-1">↩ Undo<span class="ctx-shortcut">Ctrl+Z</span></button>
@@ -200,6 +206,7 @@
       <div class="shortcut-row"><span class="label">Zoom out</span><kbd>Ctrl+−</kbd></div>
       <div class="shortcut-row"><span class="label">Reset zoom</span><kbd>Ctrl+0</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle draw</span><kbd>D</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle select</span><kbd>S</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle theme</span><kbd>Ctrl+Shift+T</kbd></div>

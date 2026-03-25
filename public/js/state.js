@@ -92,4 +92,11 @@ export const state = {
   brushSize: 4,     // default medium
   brushColor: '#e94560',
   brushOpacity: 1.0,
+
+  // Selection tool
+  selectMode: false,
+  isSelecting: false,
+  selStartX: 0,
+  selStartY: 0,
+  selRect: null, // { x, y, w, h } in canvas pixels
 };

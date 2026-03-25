@@ -5,6 +5,7 @@ const { canvas, ctx, container, statusEl, undoBtn, redoBtn, saveBtn,
         zoomLevelEl, zoomInBtn, zoomOutBtn, zoomFitBtn, emptyState } = els;
 
 const drawBtn = document.getElementById('draw-btn');
+const selectBtn = document.getElementById('select-btn');
 
 // Undo/Redo
 export function saveState() {
@@ -47,6 +48,7 @@ export function updateUndoRedoButtons() {
   redoBtn.disabled = state.historyIndex >= state.historyStack.length - 1;
   saveBtn.disabled = !state.currentImg;
   if (drawBtn) drawBtn.disabled = !state.currentImg;
+  if (selectBtn) selectBtn.disabled = !state.currentImg;
 }
 
 // Canvas drawing
@@ -137,6 +139,7 @@ container.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDef
 container.addEventListener('mousedown', (e) => {
   if (!state.currentImg) return;
   if (state.drawingMode && e.button === 0) return; // drawing handles left-click
+  if (state.selectMode && e.button === 0) return; // selection handles left-click
   if (e.button === 1 || (e.button === 0 && state.zoomLevel !== 1)) {
     if (e.button === 0 && state.zoomLevel === 1) return;
     e.preventDefault();
