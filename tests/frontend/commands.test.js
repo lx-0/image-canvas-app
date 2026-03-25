@@ -8,7 +8,7 @@ vi.mock('../../public/js/state.js', () => ({
     chatMessages: { appendChild: vi.fn(), scrollTop: 0, scrollHeight: 0 },
     statusEl: { textContent: '' },
   },
-  state: { currentImg: null, currentImageKey: null },
+  state: { currentImg: null, currentImageKey: null, layers: [], activeLayerIndex: 0 },
 }));
 
 vi.mock('../../public/js/ui.js', () => ({
@@ -17,10 +17,17 @@ vi.mock('../../public/js/ui.js', () => ({
 
 vi.mock('../../public/js/canvas.js', () => ({
   saveState: vi.fn(),
+  resizeAndDraw: vi.fn(),
 }));
 
 vi.mock('../../public/js/gallery.js', () => ({
   incrementEditCount: vi.fn(),
+}));
+
+vi.mock('../../public/js/layers.js', () => ({
+  compositeLayers: vi.fn(),
+  getActiveCanvas: vi.fn(() => ({ width: 100, height: 100 })),
+  getActiveCtx: vi.fn(() => ({})),
 }));
 
 vi.mock('../../public/js/filters.js', () => ({

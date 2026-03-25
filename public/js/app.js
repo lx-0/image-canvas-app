@@ -16,6 +16,7 @@ import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
 import { initCropPresets } from './crop-presets.js';
 import { initFilterPanel, toggleFilterPanel, isFilterPanelOpen, closeFilterPanel } from './filter-panel.js';
+import { initLayersFromImage, initLayersPanel, toggleLayersPanel, compositeLayers } from './layers.js';
 
 let form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
     exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
@@ -42,6 +43,7 @@ async function uploadAndRender(file) {
     img.onload = () => {
       state.currentImg = img;
       state.currentImageKey = data.url;
+      initLayersFromImage(img);
       resetZoomPan();
       resizeAndDraw();
       saveState();
@@ -171,6 +173,7 @@ form.addEventListener('submit', async (e) => {
     img.onload = () => {
       state.currentImg = img;
       state.currentImageKey = data.url;
+      initLayersFromImage(img);
       resetZoomPan();
       resizeAndDraw();
       saveState();
@@ -362,6 +365,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
+  if (e.key === 'l' && !isTyping && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    toggleLayersPanel();
+    return;
+  }
+
   if (e.key === '/' && !isTyping && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     chatInput.focus();
@@ -391,6 +400,9 @@ initCropPresets();
 
 // --- Filter adjustment panel ---
 initFilterPanel();
+
+// --- Layers panel ---
+initLayersPanel();
 
 // --- Register service worker ---
 if ('serviceWorker' in navigator) {

@@ -1,6 +1,7 @@
-// Export/Save dialog functionality
+// Export/Save dialog functionality — layer-aware
 import { els, state } from './state.js';
 import { announce, trapFocus } from './ui.js';
+import { getFlattenedCanvas } from './layers.js';
 
 const { canvas, exportOverlay, exportFilename, exportFormat, exportQuality,
         qualityValue, qualityField, exportCancelBtn, exportDownloadBtn,
@@ -30,7 +31,6 @@ function detectAvifSupport() {
   });
 }
 
-// Disable AVIF option if browser can't encode it
 detectAvifSupport().then((supported) => {
   if (!supported && avifOption) {
     avifOption.disabled = true;
@@ -53,6 +53,11 @@ function formatFileSize(bytes) {
 }
 
 function getOffscreenCanvas() {
+  // Use flattened layers at full resolution if available
+  if (state.layers.length > 0) {
+    return getFlattenedCanvas();
+  }
+  // Fallback to currentImg
   if (!state.currentImg) return null;
   const offscreen = document.createElement('canvas');
   offscreen.width = state.currentImg.width;
@@ -62,7 +67,8 @@ function getOffscreenCanvas() {
 }
 
 function updateSizeEstimate() {
-  if (!state.currentImg) return;
+  const hasContent = state.layers.length > 0 || !!state.currentImg;
+  if (!hasContent) return;
 
   clearTimeout(sizeEstimateTimer);
   sizeEstimateTimer = setTimeout(() => {
@@ -100,7 +106,8 @@ function updateQualityVisibility() {
 }
 
 export function openExportDialog() {
-  if (!state.currentImg) return;
+  const hasContent = state.layers.length > 0 || !!state.currentImg;
+  if (!hasContent) return;
   exportFilename.value = getDefaultFilename();
   exportFormat.value = 'png';
   exportQuality.value = 92;
@@ -134,7 +141,8 @@ exportOverlay.addEventListener('click', (e) => {
 });
 
 exportDownloadBtn.addEventListener('click', () => {
-  if (!state.currentImg) return;
+  const hasContent = state.layers.length > 0 || !!state.currentImg;
+  if (!hasContent) return;
 
   const format = exportFormat.value;
   const cfg = FORMAT_CONFIG[format];

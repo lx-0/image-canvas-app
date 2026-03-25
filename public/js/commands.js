@@ -1,13 +1,15 @@
-// Command classification, preview, and execution dispatch
+// Command classification, preview, and execution dispatch — layer-aware
 import { els, state } from './state.js';
 import { setChatEnabled } from './ui.js';
-import { saveState } from './canvas.js';
+import { saveState, resizeAndDraw } from './canvas.js';
 import { incrementEditCount } from './gallery.js';
+import { compositeLayers } from './layers.js';
 import * as filters from './filters.js';
 
 const { canvas, ctx, chatMessages, statusEl } = els;
 
 const DESTRUCTIVE_ACTIONS = new Set(['crop', 'resize', 'rotate', 'flip']);
+const GEOMETRIC_ACTIONS = new Set(['crop', 'resize', 'rotate', 'flip']);
 
 export function isDestructiveCommand(cmd) {
   return DESTRUCTIVE_ACTIONS.has(cmd.action);
@@ -20,12 +22,12 @@ export function hasDestructiveCommands(commands) {
 function summarizeCommand(cmd) {
   switch (cmd.action) {
     case 'crop':
-      return `Crop to ${cmd.width}%×${cmd.height}% at (${cmd.x}%, ${cmd.y}%)`;
+      return `Crop to ${cmd.width}%\u00D7${cmd.height}% at (${cmd.x}%, ${cmd.y}%)`;
     case 'resize':
       if (cmd.scale) return `Resize to ${Math.round(cmd.scale * 100)}%`;
-      return `Resize to ${cmd.width}×${cmd.height}px`;
+      return `Resize to ${cmd.width}\u00D7${cmd.height}px`;
     case 'rotate':
-      return `Rotate ${cmd.degrees}°`;
+      return `Rotate ${cmd.degrees}\u00B0`;
     case 'flip':
       return `Flip ${cmd.direction || 'horizontal'}`;
     case 'brightness':
@@ -41,16 +43,28 @@ function summarizeCommand(cmd) {
   }
 }
 
+function executeOnLayer(filterFn, cmd) {
+  if (GEOMETRIC_ACTIONS.has(cmd?.action) && state.layers.length > 0) {
+    // Apply geometric transforms to ALL layers
+    for (const layer of state.layers) {
+      filterFn(cmd, layer.canvas, layer.ctx);
+    }
+  } else {
+    // Pixel transforms: active layer only (or display canvas if no layers)
+    filterFn(cmd);
+  }
+}
+
 export function executeCommands(commands) {
-  if (!state.currentImg || !commands || !Array.isArray(commands)) return;
+  if ((state.layers.length === 0 && !state.currentImg) || !commands || !Array.isArray(commands)) return;
 
   for (const cmd of commands) {
     switch (cmd.action) {
-      case 'crop': filters.executeCrop(cmd); break;
-      case 'resize': filters.executeResize(cmd); break;
-      case 'rotate': filters.executeRotate(cmd); break;
+      case 'crop': executeOnLayer(filters.executeCrop, cmd); break;
+      case 'resize': executeOnLayer(filters.executeResize, cmd); break;
+      case 'rotate': executeOnLayer(filters.executeRotate, cmd); break;
+      case 'flip': executeOnLayer(filters.executeFlip, cmd); break;
       case 'addText': filters.executeAddText(cmd); break;
-      case 'flip': filters.executeFlip(cmd); break;
       case 'grayscale': filters.executeGrayscale(); break;
       case 'brightness': filters.executeBrightness(cmd); break;
       case 'contrast': filters.executeContrast(cmd); break;
@@ -65,14 +79,23 @@ export function executeCommands(commands) {
     }
   }
 
-  const snapshot = new Image();
-  snapshot.onload = () => {
-    state.currentImg = snapshot;
+  if (state.layers.length > 0) {
+    compositeLayers();
+    resizeAndDraw();
     saveState();
-    statusEl.textContent = `${state.currentImg.width}×${state.currentImg.height} rendered`;
-    if (state.currentImageKey) incrementEditCount(state.currentImageKey);
-  };
-  snapshot.src = canvas.toDataURL('image/png');
+    const ref = state.layers[0].canvas;
+    statusEl.textContent = `${ref.width}\u00D7${ref.height} rendered`;
+  } else {
+    const snapshot = new Image();
+    snapshot.onload = () => {
+      state.currentImg = snapshot;
+      saveState();
+      statusEl.textContent = `${state.currentImg.width}\u00D7${state.currentImg.height} rendered`;
+      if (state.currentImageKey) incrementEditCount(state.currentImageKey);
+    };
+    snapshot.src = canvas.toDataURL('image/png');
+  }
+  if (state.currentImageKey) incrementEditCount(state.currentImageKey);
 }
 
 export function showCommandPreview(commands, messageDiv) {
@@ -93,11 +116,11 @@ export function showCommandPreview(commands, messageDiv) {
     const card = document.createElement('div');
     card.className = 'cmd-preview';
     card.setAttribute('role', 'region');
-    card.setAttribute('aria-label', 'Command preview — review before applying');
+    card.setAttribute('aria-label', 'Command preview \u2014 review before applying');
 
     const header = document.createElement('div');
     header.className = 'cmd-preview-header';
-    header.innerHTML = '<span class="icon" aria-hidden="true">⚡</span> Commands to apply';
+    header.innerHTML = '<span class="icon" aria-hidden="true">\u26A1</span> Commands to apply';
     card.appendChild(header);
 
     const list = document.createElement('ul');
@@ -109,7 +132,7 @@ export function showCommandPreview(commands, messageDiv) {
       const icon = document.createElement('span');
       icon.className = 'cmd-icon';
       icon.setAttribute('aria-hidden', 'true');
-      icon.textContent = isDestructiveCommand(cmd) ? '⚠' : '✓';
+      icon.textContent = isDestructiveCommand(cmd) ? '\u26A0' : '\u2713';
       li.appendChild(icon);
       const desc = summarizeCommand(cmd);
       li.appendChild(document.createTextNode(desc));
@@ -145,7 +168,7 @@ export function showCommandPreview(commands, messageDiv) {
       card.classList.add('resolved');
       const status = document.createElement('div');
       status.className = 'cmd-preview-status applied';
-      status.textContent = '✓ Applied';
+      status.textContent = '\u2713 Applied';
       card.appendChild(status);
       const badge = document.createElement('span');
       badge.className = 'cmd-badge';
@@ -160,7 +183,7 @@ export function showCommandPreview(commands, messageDiv) {
       card.classList.add('resolved');
       const status = document.createElement('div');
       status.className = 'cmd-preview-status cancelled';
-      status.textContent = '✗ Cancelled';
+      status.textContent = '\u2717 Cancelled';
       card.appendChild(status);
       setChatEnabled(true);
       resolve(false);

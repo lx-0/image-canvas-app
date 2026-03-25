@@ -31,6 +31,7 @@
       <button id="draw-btn" class="toolbar-btn" disabled title="Freehand draw (D)" aria-label="Toggle freehand drawing mode (D)">✏ Draw <span class="shortcut">D</span></button>
       <button id="select-btn" class="toolbar-btn" disabled title="Select &amp; Crop (S)" aria-label="Toggle rectangular selection mode (S)">⬚ Select <span class="shortcut">S</span></button>
       <button id="filter-btn" class="toolbar-btn" disabled title="Adjust filters (F)" aria-label="Toggle filter adjustment panel (F)">◐ Filters <span class="shortcut">F</span></button>
+      <button id="layers-btn" class="toolbar-btn" disabled title="Layers (L)" aria-label="Toggle layers panel (L)">◫ Layers <span class="shortcut">L</span></button>
     </div>
     <button id="theme-toggle" class="toolbar-btn" title="Toggle light/dark theme (Ctrl+Shift+T)" aria-label="Toggle light or dark theme">
       <span id="theme-icon">☀</span>
@@ -122,6 +123,17 @@
           <button id="filter-cancel-btn" class="filter-action-btn" aria-label="Cancel filter adjustments">Cancel</button>
           <button id="filter-apply-btn" class="filter-action-btn filter-apply" aria-label="Apply filter adjustments">Apply</button>
         </div>
+      </div>
+      <div id="layers-panel" aria-label="Layers">
+        <div id="layers-header">
+          <span>Layers</span>
+          <div id="layers-actions">
+            <button id="layer-add-btn" title="Add new layer" aria-label="Add new layer">+</button>
+            <button id="layer-delete-btn" title="Delete active layer" aria-label="Delete active layer">&#x1F5D1;</button>
+            <button id="layer-flatten-btn" title="Flatten all layers" aria-label="Flatten all layers">&#x229E;</button>
+          </div>
+        </div>
+        <div id="layers-list" role="list" aria-label="Layer stack"></div>
       </div>
       <div id="select-toolbar" aria-label="Selection actions">
         <span id="select-dims" aria-label="Selection dimensions"></span>
@@ -307,6 +319,7 @@
       <div class="shortcut-row"><span class="label">Toggle draw</span><kbd>D</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle select</span><kbd>S</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle filters</span><kbd>F</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle layers</span><kbd>L</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle theme</span><kbd>Ctrl+Shift+T</kbd></div>

@@ -1,8 +1,9 @@
-// Freehand drawing tool — brush strokes on the canvas with undo/redo integration
+// Freehand drawing tool — brush strokes on the active layer with undo/redo integration
 import { els, state } from './state.js';
 import { saveState, resizeAndDraw } from './canvas.js';
+import { getActiveLayer, getActiveCtx, compositeLayers } from './layers.js';
 
-const { canvas, ctx, container, statusEl } = els;
+const { canvas, container, statusEl } = els;
 
 // --- Drawing panel DOM references ---
 const drawBtn = document.getElementById('draw-btn');
@@ -35,7 +36,7 @@ export function setDrawingMode(active) {
 }
 
 drawBtn.addEventListener('click', () => {
-  if (!state.currentImg) return;
+  if (state.layers.length === 0 && !state.currentImg) return;
   setDrawingMode(!state.drawingMode);
 });
 
@@ -69,18 +70,34 @@ opacitySlider.addEventListener('input', () => {
   opacityValue.textContent = Math.round(state.brushOpacity * 100) + '%';
 });
 
-// --- Coordinate conversion (screen -> canvas pixels) ---
-function canvasCoords(clientX, clientY) {
+// --- Coordinate conversion (screen -> active layer pixels) ---
+function layerCoords(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
+  const layer = getActiveLayer();
+  if (layer) {
+    return {
+      x: (clientX - rect.left) * layer.canvas.width / rect.width,
+      y: (clientY - rect.top) * layer.canvas.height / rect.height,
+    };
+  }
   return {
     x: (clientX - rect.left) / (rect.width / canvas.width),
     y: (clientY - rect.top) / (rect.height / canvas.height),
   };
 }
 
+// Scale brush size to layer resolution
+function scaledBrushSize() {
+  const layer = getActiveLayer();
+  if (layer && canvas.width > 0) {
+    return state.brushSize * (layer.canvas.width / canvas.width);
+  }
+  return state.brushSize;
+}
+
 // --- Mouse drawing ---
 canvas.addEventListener('mousedown', (e) => {
-  if (!state.drawingMode || !state.currentImg || e.button !== 0) return;
+  if (!state.drawingMode || (state.layers.length === 0 && !state.currentImg) || e.button !== 0) return;
   e.preventDefault();
   e.stopPropagation();
   beginStroke(e.clientX, e.clientY);
@@ -98,7 +115,7 @@ window.addEventListener('mouseup', () => {
 
 // --- Touch drawing ---
 canvas.addEventListener('touchstart', (e) => {
-  if (!state.drawingMode || !state.currentImg) return;
+  if (!state.drawingMode || (state.layers.length === 0 && !state.currentImg)) return;
   if (e.touches.length !== 1) return;
   e.preventDefault();
   e.stopPropagation();
@@ -117,40 +134,47 @@ canvas.addEventListener('touchend', (e) => {
 }, { passive: true });
 
 // --- Stroke lifecycle ---
+let _strokeCtx = null;
+
 function beginStroke(clientX, clientY) {
   state.isDrawing = true;
-  const pos = canvasCoords(clientX, clientY);
-  ctx.save();
-  ctx.globalAlpha = state.brushOpacity;
-  ctx.strokeStyle = state.brushColor;
-  ctx.lineWidth = state.brushSize;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(pos.x, pos.y);
+  _strokeCtx = getActiveCtx();
+  const pos = layerCoords(clientX, clientY);
+  _strokeCtx.save();
+  _strokeCtx.globalAlpha = state.brushOpacity;
+  _strokeCtx.strokeStyle = state.brushColor;
+  _strokeCtx.lineWidth = scaledBrushSize();
+  _strokeCtx.lineCap = 'round';
+  _strokeCtx.lineJoin = 'round';
+  _strokeCtx.beginPath();
+  _strokeCtx.moveTo(pos.x, pos.y);
   // draw a dot for single click
-  ctx.lineTo(pos.x + 0.1, pos.y + 0.1);
-  ctx.stroke();
+  _strokeCtx.lineTo(pos.x + 0.1, pos.y + 0.1);
+  _strokeCtx.stroke();
+  compositeLayers();
 }
 
 function continueStroke(clientX, clientY) {
-  const pos = canvasCoords(clientX, clientY);
-  ctx.lineTo(pos.x, pos.y);
-  ctx.stroke();
+  if (!_strokeCtx) return;
+  const pos = layerCoords(clientX, clientY);
+  _strokeCtx.lineTo(pos.x, pos.y);
+  _strokeCtx.stroke();
+  compositeLayers();
 }
 
 function endStroke() {
   state.isDrawing = false;
-  ctx.closePath();
-  ctx.restore();
-  // Snapshot canvas into currentImg and save to undo history
-  const snapshot = new Image();
-  snapshot.onload = () => {
-    state.currentImg = snapshot;
-    saveState();
-    statusEl.textContent = `${snapshot.width}x${snapshot.height} — stroke drawn`;
-  };
-  snapshot.src = canvas.toDataURL('image/png');
+  if (_strokeCtx) {
+    _strokeCtx.closePath();
+    _strokeCtx.restore();
+    _strokeCtx = null;
+  }
+  compositeLayers();
+  saveState();
+  const layer = getActiveLayer();
+  if (layer) {
+    statusEl.textContent = `${layer.canvas.width}\u00D7${layer.canvas.height} \u2014 stroke drawn`;
+  }
 }
 
 // --- Escape to exit drawing mode ---
@@ -163,7 +187,7 @@ document.addEventListener('keydown', (e) => {
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!state.currentImg) return;
+    if (state.layers.length === 0 && !state.currentImg) return;
     e.preventDefault();
     setDrawingMode(!state.drawingMode);
   }

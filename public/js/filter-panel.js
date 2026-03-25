@@ -1,7 +1,8 @@
-// Filter adjustment panel with live preview
+// Filter adjustment panel with live preview — layer-aware
 import { els, state } from './state.js';
 import { saveState } from './canvas.js';
 import { announce } from './ui.js';
+import { getActiveCanvas, getActiveCtx, compositeLayers } from './layers.js';
 
 const { canvas, ctx } = els;
 
@@ -82,9 +83,12 @@ function hasChanges() {
   return FILTERS.some(f => sliderValues[f.id] !== f.def);
 }
 
-// Apply all filter adjustments to a copy of originalImageData and render
+// Apply all filter adjustments to a copy of originalImageData and render to active layer
 function applyPreview() {
   if (!originalImageData) return;
+
+  const activeCanvas = getActiveCanvas();
+  const activeCtx = getActiveCtx();
 
   // Clone original data
   const imgData = new ImageData(
@@ -144,7 +148,7 @@ function applyPreview() {
     }
   }
 
-  // Sharpen (applied before blur so blur can soften sharpening artifacts)
+  // Sharpen
   const sharpenAmt = sliderValues.sharpen;
   if (sharpenAmt > 0) {
     const orig = new Uint8ClampedArray(data);
@@ -192,8 +196,11 @@ function applyPreview() {
     }
   }
 
-  // Render preview
-  ctx.putImageData(imgData, 0, 0);
+  // Render preview to the active layer, then composite to display
+  activeCtx.putImageData(imgData, 0, 0);
+  if (state.layers.length > 0) {
+    compositeLayers();
+  }
 }
 
 function resetSliders() {
@@ -207,11 +214,14 @@ function resetSliders() {
 }
 
 export function openFilterPanel() {
-  if (!state.currentImg) return;
+  const hasContent = state.layers.length > 0 || !!state.currentImg;
+  if (!hasContent) return;
   if (panelVisible) return;
 
-  // Capture original canvas state
-  originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  // Capture original state from the active layer (or display canvas)
+  const activeCanvas = getActiveCanvas();
+  const activeCtx = getActiveCtx();
+  originalImageData = activeCtx.getImageData(0, 0, activeCanvas.width, activeCanvas.height);
   resetSliders();
 
   panelVisible = true;
@@ -225,18 +235,18 @@ export function closeFilterPanel(apply) {
   if (!panelVisible) return;
 
   if (apply && hasChanges()) {
-    // Preview is already on canvas; snapshot for undo history
-    const snapshot = new Image();
-    snapshot.onload = () => {
-      state.currentImg = snapshot;
-      saveState();
-    };
-    snapshot.src = canvas.toDataURL('image/png');
+    // Active layer already has the filtered pixels from preview
+    compositeLayers();
+    saveState();
     announce('Filters applied');
   } else {
-    // Restore original
+    // Restore original pixels to the active layer
     if (originalImageData) {
-      ctx.putImageData(originalImageData, 0, 0);
+      const activeCtx = getActiveCtx();
+      activeCtx.putImageData(originalImageData, 0, 0);
+      if (state.layers.length > 0) {
+        compositeLayers();
+      }
     }
     announce('Filter adjustments cancelled');
   }

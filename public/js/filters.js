@@ -1,9 +1,13 @@
-// Image filter/manipulation functions
+// Image filter/manipulation functions — layer-aware
+// Pixel filters operate on the active layer by default.
+// Geometric transforms (crop, resize, rotate, flip) accept optional canvas/ctx
+// so callers can apply them to each layer individually.
 import { els } from './state.js';
+import { getActiveCanvas, getActiveCtx } from './layers.js';
 
-const { canvas, ctx } = els;
-
-export function executeCrop(cmd) {
+export function executeCrop(cmd, c, cx) {
+  const canvas = c || getActiveCanvas();
+  const ctx = cx || getActiveCtx();
   const sx = Math.round((cmd.x / 100) * canvas.width);
   const sy = Math.round((cmd.y / 100) * canvas.height);
   const sw = Math.round((cmd.width / 100) * canvas.width);
@@ -15,7 +19,9 @@ export function executeCrop(cmd) {
   ctx.putImageData(imageData, 0, 0);
 }
 
-export function executeResize(cmd) {
+export function executeResize(cmd, c, cx) {
+  const canvas = c || getActiveCanvas();
+  const ctx = cx || getActiveCtx();
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = canvas.width;
   tempCanvas.height = canvas.height;
@@ -35,7 +41,9 @@ export function executeResize(cmd) {
   ctx.drawImage(tempCanvas, 0, 0, newW, newH);
 }
 
-export function executeRotate(cmd) {
+export function executeRotate(cmd, c, cx) {
+  const canvas = c || getActiveCanvas();
+  const ctx = cx || getActiveCtx();
   const deg = cmd.degrees;
   const rad = (deg * Math.PI) / 180;
   const tempCanvas = document.createElement('canvas');
@@ -59,6 +67,8 @@ export function executeRotate(cmd) {
 }
 
 export function executeAddText(cmd) {
+  const ctx = getActiveCtx();
+  const canvas = getActiveCanvas();
   const x = (cmd.x / 100) * canvas.width;
   const y = (cmd.y / 100) * canvas.height;
   const fontSize = cmd.fontSize || 24;
@@ -80,7 +90,9 @@ export function executeAddText(cmd) {
   ctx.restore();
 }
 
-export function executeFlip(cmd) {
+export function executeFlip(cmd, c, cx) {
+  const canvas = c || getActiveCanvas();
+  const ctx = cx || getActiveCtx();
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = canvas.width;
   tempCanvas.height = canvas.height;
@@ -99,6 +111,8 @@ export function executeFlip(cmd) {
 }
 
 export function executeGrayscale() {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
@@ -109,6 +123,8 @@ export function executeGrayscale() {
 }
 
 export function executeBrightness(cmd) {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const val = cmd.value;
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
@@ -122,6 +138,8 @@ export function executeBrightness(cmd) {
 }
 
 export function executeContrast(cmd) {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const val = cmd.value;
   const factor = (259 * (val + 255)) / (255 * (259 - val));
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -135,6 +153,8 @@ export function executeContrast(cmd) {
 }
 
 export function executeBlur(cmd) {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const radius = Math.max(1, Math.round(cmd.radius || 3));
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
@@ -169,6 +189,8 @@ export function executeBlur(cmd) {
 }
 
 export function executeSharpen(cmd) {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const amount = cmd.amount || 1;
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
@@ -195,6 +217,8 @@ export function executeSharpen(cmd) {
 }
 
 export function executeSepia() {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
@@ -207,6 +231,8 @@ export function executeSepia() {
 }
 
 export function executeSaturation(cmd) {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const val = cmd.value / 100;
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
@@ -222,6 +248,8 @@ export function executeSaturation(cmd) {
 }
 
 export function executeHueRotate(cmd) {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const deg = cmd.degrees || 0;
   const rad = (deg * Math.PI) / 180;
   const cos = Math.cos(rad), sin = Math.sin(rad);
@@ -246,6 +274,8 @@ export function executeHueRotate(cmd) {
 }
 
 export function executeInvert() {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
@@ -257,6 +287,8 @@ export function executeInvert() {
 }
 
 export function executeVignette(cmd) {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const strength = cmd.strength != null ? cmd.strength / 100 : 0.5;
   const w = canvas.width, h = canvas.height;
   const imageData = ctx.getImageData(0, 0, w, h);
@@ -279,6 +311,8 @@ export function executeVignette(cmd) {
 }
 
 export function executeShadowsHighlights(cmd) {
+  const canvas = getActiveCanvas();
+  const ctx = getActiveCtx();
   const shadows = (cmd.shadows || 0) / 100;
   const highlights = (cmd.highlights || 0) / 100;
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);

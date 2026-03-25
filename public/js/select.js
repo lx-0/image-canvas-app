@@ -1,8 +1,9 @@
-// Rectangular selection tool — click-drag to draw selection, crop or cancel
+// Rectangular selection tool — click-drag to draw selection, crop or cancel (layer-aware)
 import { els, state } from './state.js';
 import { saveState, resizeAndDraw } from './canvas.js';
 import { setDrawingMode } from './draw.js';
 import { executeCrop } from './filters.js';
+import { compositeLayers } from './layers.js';
 
 const { canvas, ctx, container, statusEl } = els;
 
@@ -32,15 +33,19 @@ function clearSelection() {
   state.selRect = null;
   selToolbar.classList.remove('visible');
   // Redraw canvas to remove selection overlay
-  if (state.currentImg) resizeAndDraw();
+  if (state.layers.length > 0) {
+    resizeAndDraw();
+  } else if (state.currentImg) {
+    resizeAndDraw();
+  }
 }
 
 selectBtn.addEventListener('click', () => {
-  if (!state.currentImg) return;
+  if (state.layers.length === 0 && !state.currentImg) return;
   setSelectMode(!state.selectMode);
 });
 
-// --- Coordinate conversion (screen -> canvas pixels) ---
+// --- Coordinate conversion (screen -> display canvas pixels) ---
 function canvasCoords(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -49,7 +54,7 @@ function canvasCoords(clientX, clientY) {
   };
 }
 
-// --- Draw selection overlay ---
+// --- Draw selection overlay on the display canvas ---
 function drawSelectionOverlay() {
   if (!state.selRect) return;
   const { x, y, w, h } = state.selRect;
@@ -57,13 +62,9 @@ function drawSelectionOverlay() {
   // Dim area outside selection
   ctx.save();
   ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-  // Top
   ctx.fillRect(0, 0, canvas.width, y);
-  // Bottom
   ctx.fillRect(0, y + h, canvas.width, canvas.height - (y + h));
-  // Left
   ctx.fillRect(0, y, x, h);
-  // Right
   ctx.fillRect(x + w, y, canvas.width - (x + w), h);
 
   // Dashed rectangle border
@@ -72,7 +73,6 @@ function drawSelectionOverlay() {
   ctx.lineWidth = 1.5;
   ctx.strokeRect(x, y, w, h);
 
-  // Inner dark stroke for visibility on light backgrounds
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
   ctx.lineDashOffset = 5;
   ctx.strokeRect(x, y, w, h);
@@ -86,13 +86,19 @@ function updateSelectionUI() {
   const absW = Math.round(Math.abs(w));
   const absH = Math.round(Math.abs(h));
 
-  // Scale to original image dimensions for display
-  const scaleX = state.currentImg.width / canvas.width;
-  const scaleY = state.currentImg.height / canvas.height;
+  // Scale to layer dimensions for display (or use currentImg if no layers)
+  let scaleX = 1, scaleY = 1;
+  if (state.layers.length > 0) {
+    scaleX = state.layers[0].canvas.width / canvas.width;
+    scaleY = state.layers[0].canvas.height / canvas.height;
+  } else if (state.currentImg) {
+    scaleX = state.currentImg.width / canvas.width;
+    scaleY = state.currentImg.height / canvas.height;
+  }
   const realW = Math.round(absW * scaleX);
   const realH = Math.round(absH * scaleY);
 
-  selDims.textContent = `${realW} × ${realH} px`;
+  selDims.textContent = `${realW} \u00D7 ${realH} px`;
 
   // Position toolbar above selection
   const rect = canvas.getBoundingClientRect();
@@ -102,19 +108,16 @@ function updateSelectionUI() {
   const screenX = rect.left + (selMinX / canvas.width) * rect.width;
   const screenY = rect.top + (selMinY / canvas.height) * rect.height;
 
-  // Position relative to container
   const containerRect = container.getBoundingClientRect();
   let toolbarLeft = screenX - containerRect.left;
   let toolbarTop = screenY - containerRect.top - selToolbar.offsetHeight - 8;
 
-  // If not enough room above, show below selection
   if (toolbarTop < 0) {
     const selMaxY = Math.max(state.selRect.y, state.selRect.y + state.selRect.h);
     const belowY = rect.top + (selMaxY / canvas.height) * rect.height;
     toolbarTop = belowY - containerRect.top + 8;
   }
 
-  // Clamp to container bounds
   toolbarLeft = Math.max(4, Math.min(toolbarLeft, containerRect.width - selToolbar.offsetWidth - 4));
   toolbarTop = Math.max(4, Math.min(toolbarTop, containerRect.height - selToolbar.offsetHeight - 4));
 
@@ -128,7 +131,7 @@ function updateSelectionUI() {
 
 // --- Mouse selection ---
 canvas.addEventListener('mousedown', (e) => {
-  if (!state.selectMode || !state.currentImg || e.button !== 0) return;
+  if (!state.selectMode || (state.layers.length === 0 && !state.currentImg) || e.button !== 0) return;
   e.preventDefault();
   e.stopPropagation();
   beginSelection(e.clientX, e.clientY);
@@ -146,7 +149,7 @@ window.addEventListener('mouseup', () => {
 
 // --- Touch selection ---
 canvas.addEventListener('touchstart', (e) => {
-  if (!state.selectMode || !state.currentImg) return;
+  if (!state.selectMode || (state.layers.length === 0 && !state.currentImg)) return;
   if (e.touches.length !== 1) return;
   e.preventDefault();
   e.stopPropagation();
@@ -176,14 +179,12 @@ function beginSelection(clientX, clientY) {
 
 function updateSelection(clientX, clientY) {
   const pos = canvasCoords(clientX, clientY);
-  // Clamp to canvas bounds
   const cx = Math.max(0, Math.min(canvas.width, pos.x));
   const cy = Math.max(0, Math.min(canvas.height, pos.y));
 
   const rawW = cx - state.selStartX;
   const rawH = cy - state.selStartY;
 
-  // Normalize to positive x, y, w, h
   state.selRect = {
     x: rawW >= 0 ? state.selStartX : cx,
     y: rawH >= 0 ? state.selStartY : cy,
@@ -191,7 +192,6 @@ function updateSelection(clientX, clientY) {
     h: Math.abs(rawH),
   };
 
-  // Redraw canvas then overlay
   resizeAndDraw();
   drawSelectionOverlay();
   updateSelectionUI();
@@ -208,10 +208,10 @@ function endSelection() {
 
 // --- Crop to selection ---
 selCropBtn.addEventListener('click', () => {
-  if (!state.selRect || !state.currentImg) return;
+  if (!state.selRect || (state.layers.length === 0 && !state.currentImg)) return;
   const { x, y, w, h } = state.selRect;
 
-  // Convert from canvas pixels to percentages for executeCrop
+  // Convert from display canvas pixels to percentages
   const cmd = {
     action: 'crop',
     x: (x / canvas.width) * 100,
@@ -220,19 +220,28 @@ selCropBtn.addEventListener('click', () => {
     height: (h / canvas.height) * 100,
   };
 
-  executeCrop(cmd);
-
-  // Snapshot and save to undo history
-  const snapshot = new Image();
-  snapshot.onload = () => {
-    state.currentImg = snapshot;
-    saveState();
+  // Apply crop to ALL layers (geometric transform)
+  if (state.layers.length > 0) {
+    for (const layer of state.layers) {
+      executeCrop(cmd, layer.canvas, layer.ctx);
+    }
+    compositeLayers();
     resizeAndDraw();
-    statusEl.textContent = `${snapshot.width}×${snapshot.height} cropped`;
-  };
-  snapshot.src = canvas.toDataURL('image/png');
+    saveState();
+    const ref = state.layers[0].canvas;
+    statusEl.textContent = `${ref.width}\u00D7${ref.height} cropped`;
+  } else {
+    executeCrop(cmd);
+    const snapshot = new Image();
+    snapshot.onload = () => {
+      state.currentImg = snapshot;
+      saveState();
+      resizeAndDraw();
+      statusEl.textContent = `${snapshot.width}\u00D7${snapshot.height} cropped`;
+    };
+    snapshot.src = canvas.toDataURL('image/png');
+  }
 
-  // Exit selection mode
   setSelectMode(false);
 });
 
@@ -247,17 +256,15 @@ document.addEventListener('keydown', (e) => {
     setSelectMode(false);
     return;
   }
-  // Enter confirms crop when selection exists
   if (e.key === 'Enter' && state.selectMode && state.selRect && state.selRect.w > 2) {
     selCropBtn.click();
     return;
   }
-  // Toggle with S key when not typing
   if (e.key === 's' || e.key === 'S') {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    if (!state.currentImg) return;
+    if (state.layers.length === 0 && !state.currentImg) return;
     e.preventDefault();
     setSelectMode(!state.selectMode);
   }
