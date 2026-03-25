@@ -204,6 +204,47 @@ async function syncGallery() {
   renderGallery();
 }
 
+// Real-time gallery sync via Server-Sent Events
+function connectSSE() {
+  const evtSource = new EventSource('/api/events');
+
+  evtSource.addEventListener('image:uploaded', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (!findGalleryItem(data.url)) {
+        state.galleryItems.unshift({
+          url: data.url,
+          thumbnailUrl: data.thumbnailUrl || null,
+          name: data.name || data.url.split('/').pop(),
+          editCount: 0,
+        });
+        saveGalleryState();
+        renderGallery();
+      }
+    } catch (_e) { /* ignore parse errors */ }
+  });
+
+  evtSource.addEventListener('image:deleted', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      const existed = findGalleryItem(data.url);
+      if (existed) {
+        state.galleryItems = state.galleryItems.filter((i) => i.url !== data.url);
+        saveGalleryState();
+        renderGallery();
+      }
+    } catch (_e) { /* ignore parse errors */ }
+  });
+
+  evtSource.onerror = () => {
+    // EventSource auto-reconnects; close only if CLOSED state
+    if (evtSource.readyState === EventSource.CLOSED) {
+      setTimeout(connectSSE, 5000);
+    }
+  };
+}
+
 // Initialize gallery
 loadGalleryState();
 syncGallery();
+connectSSE();

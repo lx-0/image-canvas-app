@@ -83,6 +83,16 @@ async function withRetry(fn, requestId, maxAttempts = 3) {
 
 const app = express();
 
+// SSE: track connected clients for real-time gallery events
+const sseClients = new Set();
+
+function broadcastEvent(event, data) {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const client of sseClients) {
+    client.write(payload);
+  }
+}
+
 // Production security and performance middleware
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(compression());
@@ -177,6 +187,31 @@ app.use((req, res, next) => {
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+// SSE endpoint for real-time gallery updates
+app.get('/api/events', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'Access-Control-Allow-Origin': config.corsOrigin,
+  });
+
+  // Send initial keepalive
+  res.write(':ok\n\n');
+
+  sseClients.add(res);
+
+  // Keepalive every 30s to prevent proxy/timeout disconnects
+  const keepalive = setInterval(() => {
+    res.write(':keepalive\n\n');
+  }, 30000);
+
+  req.on('close', () => {
+    clearInterval(keepalive);
+    sseClients.delete(res);
+  });
 });
 
 // CORS
@@ -404,6 +439,8 @@ app.delete('/api/images/:filename', (req, res) => {
       logError(req.requestId, 'DB delete error', _dbErr);
     }
 
+    broadcastEvent('image:deleted', { url: `/uploads/${filename}` });
+
     res.json({ success: true });
   } catch (err) {
     logError(req.requestId, 'Delete image error', err);
@@ -465,10 +502,18 @@ app.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {
       `/thumbnails/${thumbFilename}`
     );
 
-    res.json({
+    const uploadResult = {
       url: `/uploads/${req.file.filename}`,
       thumbnailUrl: `/thumbnails/${thumbFilename}`,
+    };
+
+    broadcastEvent('image:uploaded', {
+      url: uploadResult.url,
+      thumbnailUrl: uploadResult.thumbnailUrl,
+      name: req.file.filename,
     });
+
+    res.json(uploadResult);
   } catch (err) {
     logError(req.requestId, 'Image optimization error', err);
     // Fall back to unoptimized upload if sharp fails (e.g., SVG or unsupported format)
@@ -482,6 +527,13 @@ app.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {
     } catch (_dbErr) {
       logError(req.requestId, 'DB insert fallback error', _dbErr);
     }
+
+    broadcastEvent('image:uploaded', {
+      url: `/uploads/${req.file.filename}`,
+      thumbnailUrl: null,
+      name: req.file.filename,
+    });
+
     res.json({ url: `/uploads/${req.file.filename}` });
   }
 });
