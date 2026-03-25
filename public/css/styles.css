@@ -388,6 +388,54 @@ canvas {
   text-align: center;
 }
 
+/* Context menu */
+#canvas-context-menu {
+  display: none;
+  position: fixed;
+  z-index: 500;
+  min-width: 200px;
+  padding: 4px 0;
+  background: var(--bg-surface);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px var(--shadow-dialog);
+  border: 1px solid var(--bg-interactive);
+}
+#canvas-context-menu.visible { display: block; }
+
+.ctx-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 14px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.ctx-item:hover, .ctx-item:focus {
+  background: var(--bg-interactive);
+  outline: none;
+}
+.ctx-item.disabled {
+  color: var(--text-dim);
+  cursor: default;
+  pointer-events: none;
+}
+.ctx-shortcut {
+  margin-left: 24px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.ctx-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--bg-interactive);
+}
+
 #canvas-container.dragover {
   background: var(--bg-dragover);
   outline: 3px dashed var(--accent);

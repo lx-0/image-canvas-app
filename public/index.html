@@ -62,6 +62,16 @@
         <button class="zoom-btn" id="zoom-in-btn" title="Zoom in (Ctrl++)" aria-label="Zoom in">+</button>
         <button class="zoom-btn" id="zoom-fit-btn" title="Fit to view (Ctrl+0)" aria-label="Fit image to view">⊡</button>
       </div>
+      <div id="canvas-context-menu" role="menu" aria-label="Canvas actions">
+        <button class="ctx-item" role="menuitem" data-action="undo" tabindex="-1">↩ Undo<span class="ctx-shortcut">Ctrl+Z</span></button>
+        <button class="ctx-item" role="menuitem" data-action="redo" tabindex="-1">↪ Redo<span class="ctx-shortcut">Ctrl+Y</span></button>
+        <div class="ctx-separator" role="separator"></div>
+        <button class="ctx-item" role="menuitem" data-action="fit" tabindex="-1">⊡ Fit to View<span class="ctx-shortcut">Ctrl+0</span></button>
+        <button class="ctx-item" role="menuitem" data-action="reset" tabindex="-1">↻ Reset Zoom</button>
+        <div class="ctx-separator" role="separator"></div>
+        <button class="ctx-item" role="menuitem" data-action="export" tabindex="-1">⬇ Export<span class="ctx-shortcut">Ctrl+S</span></button>
+        <button class="ctx-item" role="menuitem" data-action="copy" tabindex="-1">⎘ Copy to Clipboard</button>
+      </div>
     </div>
 
     <aside id="chat-panel" aria-label="AI Assistant chat">

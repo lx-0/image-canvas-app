@@ -7,6 +7,7 @@ import { resizeAndDraw, resetZoomPan, saveState, undo, redo, updateUndoRedoButto
          applyTransform, zoomToPoint, getCanvasDataURL, fileToDataURL } from './canvas.js';
 import { loadConversation, restoreConversationUI } from './chat-persistence.js';
 import './chat.js'; // Initialize chat event listeners
+import './context-menu.js'; // Canvas right-click context menu
 import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
 
