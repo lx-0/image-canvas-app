@@ -20,6 +20,7 @@ import { initFilterPanel, toggleFilterPanel, isFilterPanelOpen, closeFilterPanel
 import { initFilterPresets } from './filter-presets.js';
 import { initLayersFromImage, initLayersPanel, toggleLayersPanel, compositeLayers } from './layers.js';
 import { saveProject, openProject } from './project-io.js';
+import { toggleCompare, closeCompare, isCompareOpen, updateCompareButton } from './compare.js';
 
 let form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
     exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
@@ -357,6 +358,10 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (e.key === 'Escape') {
+    if (isCompareOpen()) {
+      closeCompare();
+      return;
+    }
     if (isFilterPanelOpen()) {
       closeFilterPanel(false);
       return;
@@ -381,6 +386,12 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'l' && !isTyping && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     toggleLayersPanel();
+    return;
+  }
+
+  if (e.key === 'c' && !isTyping && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    toggleCompare();
     return;
   }
 

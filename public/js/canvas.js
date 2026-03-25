@@ -10,6 +10,7 @@ const selectBtn = document.getElementById('select-btn');
 const textBtn = document.getElementById('text-btn');
 const filterBtn = document.getElementById('filter-btn');
 const layersBtn = document.getElementById('layers-btn');
+const compareBtn = document.getElementById('compare-btn');
 
 // --- Undo/Redo ---
 
@@ -84,6 +85,7 @@ export function updateUndoRedoButtons() {
   if (textBtn) textBtn.disabled = !hasContent;
   if (filterBtn) filterBtn.disabled = !hasContent;
   if (layersBtn) layersBtn.disabled = !hasContent;
+  if (compareBtn) compareBtn.disabled = !hasContent;
   const saveProjectBtn = document.getElementById('save-project-btn');
   if (saveProjectBtn) saveProjectBtn.disabled = !hasContent;
 }

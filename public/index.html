@@ -36,6 +36,7 @@
       <button id="text-btn" class="toolbar-btn" disabled title="Add text (T)" aria-label="Toggle text tool (T)">𝐓 Text <span class="shortcut">T</span></button>
       <button id="filter-btn" class="toolbar-btn" disabled title="Adjust filters (F)" aria-label="Toggle filter adjustment panel (F)">◐ Filters <span class="shortcut">F</span></button>
       <button id="layers-btn" class="toolbar-btn" disabled title="Layers (L)" aria-label="Toggle layers panel (L)">◫ Layers <span class="shortcut">L</span></button>
+      <button id="compare-btn" class="toolbar-btn" disabled title="Compare original (C)" aria-label="Toggle before/after comparison (C)">◧ Compare <span class="shortcut">C</span></button>
     </div>
     <button id="theme-toggle" class="toolbar-btn" title="Toggle light/dark theme (Ctrl+Shift+T)" aria-label="Toggle light or dark theme">
       <span id="theme-icon">☀</span>
@@ -61,6 +62,20 @@
     <div id="canvas-container">
       <button id="gallery-toggle-btn" title="Show gallery" aria-label="Show gallery sidebar">▶</button>
       <canvas id="canvas" tabindex="0" role="img" aria-label="Image editing canvas"></canvas>
+      <div id="compare-overlay" aria-label="Before/after comparison">
+        <canvas id="compare-before" aria-label="Original image"></canvas>
+        <canvas id="compare-after" aria-label="Current image"></canvas>
+        <div id="compare-divider" role="slider" aria-label="Comparison divider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+          <div id="compare-handle">
+            <span class="compare-arrow">◀</span>
+            <span class="compare-arrow">▶</span>
+          </div>
+        </div>
+        <div id="compare-labels">
+          <span class="compare-label compare-label-before">Original</span>
+          <span class="compare-label compare-label-after">Current</span>
+        </div>
+      </div>
       <div id="empty-state" aria-label="Upload prompt">
         <div class="empty-state-icon" aria-hidden="true">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -364,6 +379,7 @@
       <div class="shortcut-row"><span class="label">Toggle text</span><kbd>T</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle filters</span><kbd>F</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle layers</span><kbd>L</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle compare</span><kbd>C</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>
       <div class="shortcut-row"><span class="label">Save project</span><kbd>Ctrl+Shift+S</kbd></div>

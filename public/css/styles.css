@@ -2538,6 +2538,99 @@ body.theme-transitioning *::after {
   cursor: default;
 }
 
+/* --- Compare overlay (before/after slider) --- */
+
+#compare-overlay {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  cursor: ew-resize;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px var(--shadow-canvas);
+}
+
+#compare-overlay.visible {
+  display: block;
+}
+
+#compare-before,
+#compare-after {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#compare-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #fff;
+  transform: translateX(-50%);
+  z-index: 2;
+  cursor: ew-resize;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+#compare-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #fff;
+  font-size: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.compare-arrow {
+  line-height: 1;
+}
+
+#compare-labels {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 12px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.compare-label {
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+#compare-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
 /* Reduced motion: disable animations and transitions for users who prefer it */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
