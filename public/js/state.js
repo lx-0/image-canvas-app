@@ -42,6 +42,7 @@ export const els = {
   zoomInBtn: document.getElementById('zoom-in-btn'),
   zoomOutBtn: document.getElementById('zoom-out-btn'),
   zoomFitBtn: document.getElementById('zoom-fit-btn'),
+  emptyState: document.getElementById('empty-state'),
 };
 
 // Mutable application state

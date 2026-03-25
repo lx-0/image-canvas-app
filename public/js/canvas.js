@@ -2,7 +2,7 @@
 import { els, state } from './state.js';
 
 const { canvas, ctx, container, statusEl, undoBtn, redoBtn, saveBtn,
-        zoomLevelEl, zoomInBtn, zoomOutBtn, zoomFitBtn } = els;
+        zoomLevelEl, zoomInBtn, zoomOutBtn, zoomFitBtn, emptyState } = els;
 
 // Undo/Redo
 export function saveState() {
@@ -54,8 +54,10 @@ export function resizeAndDraw() {
   if (!state.currentImg) {
     canvas.width = cw;
     canvas.height = ch;
+    emptyState.classList.remove('hidden');
     return;
   }
+  emptyState.classList.add('hidden');
 
   const scale = Math.min(cw / state.currentImg.width, ch / state.currentImg.height, 1);
   const w = Math.round(state.currentImg.width * scale);
