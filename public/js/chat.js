@@ -108,7 +108,7 @@ attachBtn.addEventListener('click', togglePicker);
 pickerClose.addEventListener('click', () => { picker.style.display = 'none'; });
 
 // SSE parser
-function createSSEParser(onEvent) {
+export function createSSEParser(onEvent) {
   let buffer = '';
   return function feed(chunk) {
     buffer += chunk;
