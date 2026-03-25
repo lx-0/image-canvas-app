@@ -134,14 +134,19 @@
         <select id="export-format">
           <option value="png">PNG (lossless)</option>
           <option value="jpeg">JPEG</option>
+          <option value="webp">WebP</option>
+          <option value="avif" id="avif-option">AVIF</option>
         </select>
       </div>
       <div class="export-field" id="quality-field" style="display:none;">
-        <label for="export-quality">JPEG Quality</label>
+        <label for="export-quality" id="quality-label">Quality</label>
         <div class="range-row">
           <input type="range" id="export-quality" min="1" max="100" value="92" />
           <span class="range-value" id="quality-value">92</span>
         </div>
+      </div>
+      <div class="export-field" id="size-estimate-field" style="display:none;">
+        <span id="size-estimate" aria-live="polite"></span>
       </div>
       <div id="export-actions">
         <button id="export-cancel-btn" aria-label="Cancel export">Cancel</button>
