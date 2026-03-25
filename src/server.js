@@ -1183,6 +1183,18 @@ app.use((err, _req, res, _next) => {
 // Export app for testing; only listen when run directly
 module.exports = app;
 
+// Test helpers: expose internal functions for unit testing
+app._classifyApiError = classifyApiError;
+app._sanitizeFilename = sanitizeFilename;
+app._isValidImageByMagicBytes = isValidImageByMagicBytes;
+app._resizeForApi = resizeForApi;
+app._resetRateLimiters = async function () {
+  await apiLimiter.resetKey('::ffff:127.0.0.1');
+  await apiLimiter.resetKey('127.0.0.1');
+  await uploadLimiter.resetKey('::ffff:127.0.0.1');
+  await uploadLimiter.resetKey('127.0.0.1');
+};
+
 if (require.main === module) {
   const server = app.listen(config.port, () => {
     console.log(`Server running at http://localhost:${config.port}`);
