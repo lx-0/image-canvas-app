@@ -11,6 +11,7 @@ import './analyze.js'; // Image analysis / describe button
 import './context-menu.js'; // Canvas right-click context menu
 import { setDrawingMode } from './draw.js'; // Freehand drawing tool
 import { setSelectMode } from './select.js'; // Rectangular selection tool
+import { initTransformHandles } from './transform.js'; // Resize handles
 import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
 
@@ -364,6 +365,9 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 });
+
+// --- Transform handles (resize by dragging) ---
+initTransformHandles();
 
 // --- Mobile touch gestures ---
 (function() {
