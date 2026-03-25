@@ -52,7 +52,9 @@ export function addTypingIndicator() {
   const div = document.createElement('div');
   div.className = 'typing-indicator';
   div.id = 'typing-indicator';
-  div.innerHTML = '<span></span><span></span><span></span>';
+  div.setAttribute('role', 'status');
+  div.setAttribute('aria-label', 'AI Assistant is typing');
+  div.innerHTML = '<span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>';
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
   return div;
@@ -74,6 +76,8 @@ export function setChatEnabled(enabled) {
 export function addChatMessage(role, text, hadCommands) {
   const div = document.createElement('div');
   div.className = `chat-msg ${role}`;
+  div.setAttribute('role', 'article');
+  div.setAttribute('aria-label', `${role === 'user' ? 'You' : 'AI Assistant'}: ${text.substring(0, 80)}${text.length > 80 ? '…' : ''}`);
   if (hadCommands && role === 'assistant') {
     const badge = document.createElement('span');
     badge.className = 'cmd-badge';
@@ -89,6 +93,7 @@ export function addChatMessage(role, text, hadCommands) {
 export function addSystemMessage(text) {
   const div = document.createElement('div');
   div.className = 'chat-msg system';
+  div.setAttribute('role', 'status');
   div.textContent = text;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -115,6 +120,8 @@ export function addRetryableError(text, retryFn) {
 export function addStreamingMessage() {
   const div = document.createElement('div');
   div.className = 'chat-msg assistant';
+  div.setAttribute('role', 'article');
+  div.setAttribute('aria-label', 'AI Assistant response');
   const textNode = document.createTextNode('');
   div.appendChild(textNode);
   chatMessages.appendChild(div);

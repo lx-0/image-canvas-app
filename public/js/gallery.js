@@ -62,7 +62,12 @@ export function renderGallery() {
   for (const item of state.galleryItems) {
     const div = document.createElement('div');
     div.className = 'gallery-item';
-    if (state.currentImageKey === item.url) div.classList.add('active');
+    div.setAttribute('role', 'listitem');
+    div.setAttribute('tabindex', '0');
+    const isActive = state.currentImageKey === item.url;
+    if (isActive) div.classList.add('active');
+    div.setAttribute('aria-current', isActive ? 'true' : 'false');
+    div.setAttribute('aria-label', `${item.name}${item.editCount > 0 ? `, ${item.editCount} edit${item.editCount > 1 ? 's' : ''}` : ''}${isActive ? ' (selected)' : ''}`);
 
     const img = document.createElement('img');
     img.src = item.thumbnailUrl || item.url;
@@ -74,6 +79,7 @@ export function renderGallery() {
       const badge = document.createElement('span');
       badge.className = 'edit-badge';
       badge.textContent = item.editCount;
+      badge.setAttribute('aria-hidden', 'true');
       div.appendChild(badge);
     }
 
@@ -81,6 +87,7 @@ export function renderGallery() {
     delBtn.className = 'delete-btn';
     delBtn.textContent = '×';
     delBtn.title = 'Delete image';
+    delBtn.setAttribute('aria-label', `Delete ${item.name}`);
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       state.pendingDeleteUrl = item.url;
@@ -90,6 +97,12 @@ export function renderGallery() {
 
     div.addEventListener('click', () => {
       switchToImage(item.url);
+    });
+    div.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        switchToImage(item.url);
+      }
     });
 
     galleryList.appendChild(div);

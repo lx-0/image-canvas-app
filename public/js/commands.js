@@ -92,22 +92,30 @@ export function showCommandPreview(commands, messageDiv) {
 
     const card = document.createElement('div');
     card.className = 'cmd-preview';
+    card.setAttribute('role', 'region');
+    card.setAttribute('aria-label', 'Command preview — review before applying');
 
     const header = document.createElement('div');
     header.className = 'cmd-preview-header';
-    header.innerHTML = '<span class="icon">⚡</span> Commands to apply';
+    header.innerHTML = '<span class="icon" aria-hidden="true">⚡</span> Commands to apply';
     card.appendChild(header);
 
     const list = document.createElement('ul');
     list.className = 'cmd-preview-list';
+    list.setAttribute('aria-label', 'Proposed image commands');
     for (const cmd of commands) {
       const li = document.createElement('li');
       if (!isDestructiveCommand(cmd)) li.className = 'non-destructive';
       const icon = document.createElement('span');
       icon.className = 'cmd-icon';
+      icon.setAttribute('aria-hidden', 'true');
       icon.textContent = isDestructiveCommand(cmd) ? '⚠' : '✓';
       li.appendChild(icon);
-      li.appendChild(document.createTextNode(summarizeCommand(cmd)));
+      const desc = summarizeCommand(cmd);
+      li.appendChild(document.createTextNode(desc));
+      if (isDestructiveCommand(cmd)) {
+        li.setAttribute('aria-label', `Destructive: ${desc}`);
+      }
       list.appendChild(li);
     }
     card.appendChild(list);
@@ -118,10 +126,12 @@ export function showCommandPreview(commands, messageDiv) {
     const applyBtn = document.createElement('button');
     applyBtn.className = 'cmd-btn-apply';
     applyBtn.textContent = 'Apply';
+    applyBtn.setAttribute('aria-label', 'Apply all commands');
 
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'cmd-btn-cancel';
     cancelBtn.textContent = 'Cancel';
+    cancelBtn.setAttribute('aria-label', 'Cancel commands');
 
     actions.appendChild(applyBtn);
     actions.appendChild(cancelBtn);

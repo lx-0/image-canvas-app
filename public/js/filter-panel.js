@@ -50,6 +50,11 @@ function buildSliders() {
     slider.step = f.step;
     slider.value = f.def;
     slider.setAttribute('aria-label', `${f.label} adjustment`);
+    slider.setAttribute('aria-describedby', `filter-${f.id}-value`);
+    slider.setAttribute('aria-valuemin', String(f.min));
+    slider.setAttribute('aria-valuemax', String(f.max));
+    slider.setAttribute('aria-valuenow', String(f.def));
+    slider.setAttribute('aria-valuetext', `${f.def}${f.unit}`);
 
     const valueSpan = document.createElement('span');
     valueSpan.className = 'filter-value';
@@ -59,7 +64,10 @@ function buildSliders() {
     slider.addEventListener('input', () => {
       const val = parseFloat(slider.value);
       sliderValues[f.id] = val;
-      valueSpan.textContent = (Number.isInteger(val) ? val : val.toFixed(1)) + f.unit;
+      const display = (Number.isInteger(val) ? val : val.toFixed(1)) + f.unit;
+      valueSpan.textContent = display;
+      slider.setAttribute('aria-valuenow', String(val));
+      slider.setAttribute('aria-valuetext', display);
       applyPreview();
     });
 

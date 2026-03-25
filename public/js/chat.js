@@ -39,6 +39,7 @@ function renderAttachments() {
     removeBtn.className = 'chat-attachment-remove';
     removeBtn.textContent = '×';
     removeBtn.title = 'Remove';
+    removeBtn.setAttribute('aria-label', `Remove attached image ${item.name || 'image'}`);
     removeBtn.addEventListener('click', () => {
       state.chatAttachedImages = state.chatAttachedImages.filter(i => i.url !== item.url);
       renderAttachments();
@@ -63,9 +64,14 @@ function renderPicker() {
   }
   const attachedUrls = new Set(state.chatAttachedImages.map(i => i.url));
   for (const item of items) {
+    const isSelected = attachedUrls.has(item.url);
     const div = document.createElement('div');
     div.className = 'picker-image';
-    if (attachedUrls.has(item.url)) div.classList.add('selected');
+    div.setAttribute('role', 'checkbox');
+    div.setAttribute('aria-checked', String(isSelected));
+    div.setAttribute('aria-label', item.name || 'gallery image');
+    div.setAttribute('tabindex', '0');
+    if (isSelected) div.classList.add('selected');
 
     const img = document.createElement('img');
     img.src = item.thumbnailUrl || item.url;
@@ -76,6 +82,7 @@ function renderPicker() {
     const check = document.createElement('span');
     check.className = 'picker-check';
     check.textContent = '✓';
+    check.setAttribute('aria-hidden', 'true');
     div.appendChild(check);
 
     div.addEventListener('click', () => {
