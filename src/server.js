@@ -5,6 +5,8 @@ require('dotenv').config();
 const express = require('express');
 const helmet = require('helmet');
 const compression = require('compression');
+const morgan = require('morgan');
+const rfs = require('rotating-file-stream');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 const sharp = require('sharp');
@@ -12,7 +14,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { getDb, closeDb } = require('./db');
+const { getDb, closeDb, DATA_DIR } = require('./db');
 
 // Configuration with defaults
 const config = {
@@ -21,6 +23,7 @@ const config = {
   uploadDir: process.env.UPLOAD_DIR || 'public/uploads',
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024,
   corsOrigin: process.env.CORS_ORIGIN || '*',
+  adminToken: process.env.ADMIN_TOKEN || '',
 };
 
 // Structured logging with timestamps
@@ -92,6 +95,10 @@ function broadcastEvent(event, data) {
     client.write(payload);
   }
 }
+
+// Request counter for stats
+let requestCount = 0;
+const serverStartTime = Date.now();
 
 // Production security and performance middleware
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
@@ -184,9 +191,57 @@ app.use((req, res, next) => {
   next();
 });
 
+// Request counter middleware
+app.use((_req, _res, next) => {
+  requestCount++;
+  next();
+});
+
+// HTTP request logging with morgan (combined format)
+const logsDir = path.join(DATA_DIR, 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+
+const accessLogStream = rfs.createStream('access.log', {
+  interval: '1d',
+  path: logsDir,
+  maxFiles: 14,
+});
+
+morgan.token('request-id', (req) => req.requestId);
+app.use(morgan(':request-id :remote-addr - :remote-user [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"', {
+  stream: accessLogStream,
+}));
+
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+// Stats endpoint — returns server and image metrics
+app.get('/api/stats', (req, res) => {
+  try {
+    const db = getDb();
+    const imageCount = db.prepare('SELECT COUNT(*) AS count FROM images').get().count;
+    const totalSize = db.prepare('SELECT COALESCE(SUM(size), 0) AS total FROM images').get().total;
+    const conversationCount = db.prepare('SELECT COUNT(*) AS count FROM conversations').get().count;
+    const editCount = db.prepare('SELECT COUNT(*) AS count FROM edits').get().count;
+    const uptimeMs = Date.now() - serverStartTime;
+
+    res.json({
+      totalImages: imageCount,
+      totalDiskUsageBytes: totalSize,
+      totalConversations: conversationCount,
+      totalEdits: editCount,
+      requestCount,
+      uptimeSeconds: Math.floor(uptimeMs / 1000),
+      serverStartedAt: new Date(serverStartTime).toISOString(),
+    });
+  } catch (err) {
+    logError(req.requestId, 'Stats endpoint error', err);
+    res.status(500).json({ error: 'Failed to retrieve stats' });
+  }
 });
 
 // SSE endpoint for real-time gallery updates
@@ -446,6 +501,17 @@ app.delete('/api/images/:filename', (req, res) => {
     logError(req.requestId, 'Delete image error', err);
     res.status(500).json({ error: 'Failed to delete image' });
   }
+});
+
+// Admin page — protected by ADMIN_TOKEN query parameter
+app.get('/admin', (req, res) => {
+  if (!config.adminToken) {
+    return res.status(403).json({ error: 'Admin access is not configured. Set the ADMIN_TOKEN environment variable.' });
+  }
+  if (req.query.token !== config.adminToken) {
+    return res.status(401).json({ error: 'Invalid or missing admin token.' });
+  }
+  res.sendFile(path.join(__dirname, '../public/admin.html'));
 });
 
 app.get('/', (_req, res) => {
