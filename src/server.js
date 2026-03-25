@@ -125,7 +125,7 @@ const upload = multer({
 let geminiModel = null;
 if (config.geminiApiKey) {
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-  geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  geminiModel = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 } else {
   console.warn('GEMINI_API_KEY not set — /api/chat will return 503 until configured');
 }
