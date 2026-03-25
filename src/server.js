@@ -137,6 +137,8 @@ app._setGeminiModel = function (model) {
 
 const SYSTEM_PROMPT = `You are an AI image editing assistant. The user has an image displayed on an HTML5 canvas and will ask you to manipulate it.
 
+The user may attach multiple gallery images for reference. When multiple images are provided, the first image is the current canvas image being edited, and any additional images are reference images the user wants you to consider (e.g., for style matching, combining elements, or comparison). Commands you issue always apply to the canvas image (the first one).
+
 You can respond with JSON commands that the frontend will execute on the canvas. When the user asks for an edit, respond with a JSON block wrapped in <commands>...</commands> tags, followed by a brief natural-language explanation.
 
 Available commands (return as a JSON array):
@@ -270,6 +272,26 @@ async function resizeForApi(base64Data, mediaType) {
   return { data: resized.toString('base64'), mimeType: 'image/jpeg' };
 }
 
+// Load a gallery image from disk for the Gemini API
+async function loadGalleryImageForApi(imgUrl) {
+  // imgUrl is like "/uploads/1711382400000-542311.jpg"
+  if (typeof imgUrl !== 'string' || !imgUrl.startsWith('/uploads/')) return null;
+  const filename = path.basename(imgUrl);
+  // Sanitize: no path traversal
+  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) return null;
+  const filePath = path.join(uploadsDir, filename);
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const buffer = await sharp(filePath)
+      .resize({ width: 3072, height: 3072, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    return { data: buffer.toString('base64'), mimeType: 'image/jpeg' };
+  } catch (_e) {
+    return null;
+  }
+}
+
 // Convert chat messages to Gemini format
 function buildGeminiContents(messages, imageParts) {
   const contents = [];
@@ -392,7 +414,7 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
     return res.status(503).json({ error: 'AI assistant is not configured. Image uploads still work normally.', requestId });
   }
 
-  const { messages, imageData } = req.body;
+  const { messages, imageData, additionalImages } = req.body;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages array is required', requestId });
@@ -406,6 +428,14 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
       if (match) {
         const optimized = await resizeForApi(match[2], match[1]);
         imageParts.push(optimized);
+      }
+    }
+
+    // Load additional gallery images from disk
+    if (Array.isArray(additionalImages)) {
+      for (const imgUrl of additionalImages.slice(0, 5)) {
+        const imgPart = await loadGalleryImageForApi(imgUrl);
+        if (imgPart) imageParts.push(imgPart);
       }
     }
 
@@ -447,7 +477,7 @@ app.post('/api/chat/stream', apiLimiter, async (req, res) => {
     return res.status(503).json({ error: 'AI assistant is not configured. Image uploads still work normally.', requestId });
   }
 
-  const { messages, imageData } = req.body;
+  const { messages, imageData, additionalImages } = req.body;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages array is required', requestId });
@@ -478,6 +508,14 @@ app.post('/api/chat/stream', apiLimiter, async (req, res) => {
       if (match) {
         const optimized = await resizeForApi(match[2], match[1]);
         imageParts.push(optimized);
+      }
+    }
+
+    // Load additional gallery images from disk
+    if (Array.isArray(additionalImages)) {
+      for (const imgUrl of additionalImages.slice(0, 5)) {
+        const imgPart = await loadGalleryImageForApi(imgUrl);
+        if (imgPart) imageParts.push(imgPart);
       }
     }
 

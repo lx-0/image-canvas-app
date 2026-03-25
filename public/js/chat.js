@@ -11,6 +11,102 @@ const { chatMessages, chatInput, chatSend } = els;
 // Re-export for convenience
 export { saveConversation, loadConversation, restoreConversationUI, clearConversation, chatStorageKey } from './chat-persistence.js';
 
+// --- Image attachment UI ---
+const attachBtn = document.getElementById('chat-attach-btn');
+const attachmentsBar = document.getElementById('chat-attachments');
+const picker = document.getElementById('chat-image-picker');
+const pickerGrid = document.getElementById('chat-image-picker-grid');
+const pickerClose = document.getElementById('chat-picker-close');
+
+function renderAttachments() {
+  if (state.chatAttachedImages.length === 0) {
+    attachmentsBar.style.display = 'none';
+    attachmentsBar.innerHTML = '';
+    return;
+  }
+  attachmentsBar.style.display = 'flex';
+  attachmentsBar.innerHTML = '';
+  for (const item of state.chatAttachedImages) {
+    const thumb = document.createElement('div');
+    thumb.className = 'chat-attachment-thumb';
+
+    const img = document.createElement('img');
+    img.src = item.thumbnailUrl || item.url;
+    img.alt = item.name || 'attached image';
+    thumb.appendChild(img);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'chat-attachment-remove';
+    removeBtn.textContent = '×';
+    removeBtn.title = 'Remove';
+    removeBtn.addEventListener('click', () => {
+      state.chatAttachedImages = state.chatAttachedImages.filter(i => i.url !== item.url);
+      renderAttachments();
+      // Update picker selection if open
+      if (picker.style.display !== 'none') renderPicker();
+    });
+    thumb.appendChild(removeBtn);
+
+    attachmentsBar.appendChild(thumb);
+  }
+}
+
+function renderPicker() {
+  pickerGrid.innerHTML = '';
+  const items = state.galleryItems;
+  if (items.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'picker-empty';
+    empty.textContent = 'No gallery images available.';
+    pickerGrid.appendChild(empty);
+    return;
+  }
+  const attachedUrls = new Set(state.chatAttachedImages.map(i => i.url));
+  for (const item of items) {
+    const div = document.createElement('div');
+    div.className = 'picker-image';
+    if (attachedUrls.has(item.url)) div.classList.add('selected');
+
+    const img = document.createElement('img');
+    img.src = item.thumbnailUrl || item.url;
+    img.alt = item.name || 'gallery image';
+    img.loading = 'lazy';
+    div.appendChild(img);
+
+    const check = document.createElement('span');
+    check.className = 'picker-check';
+    check.textContent = '✓';
+    div.appendChild(check);
+
+    div.addEventListener('click', () => {
+      if (attachedUrls.has(item.url)) {
+        state.chatAttachedImages = state.chatAttachedImages.filter(i => i.url !== item.url);
+        attachedUrls.delete(item.url);
+        div.classList.remove('selected');
+      } else {
+        state.chatAttachedImages.push({ url: item.url, thumbnailUrl: item.thumbnailUrl, name: item.name });
+        attachedUrls.add(item.url);
+        div.classList.add('selected');
+      }
+      renderAttachments();
+    });
+
+    pickerGrid.appendChild(div);
+  }
+}
+
+function togglePicker() {
+  if (picker.style.display === 'none') {
+    renderPicker();
+    picker.style.display = 'block';
+  } else {
+    picker.style.display = 'none';
+  }
+}
+
+attachBtn.addEventListener('click', togglePicker);
+pickerClose.addEventListener('click', () => { picker.style.display = 'none'; });
+
 // SSE parser
 function createSSEParser(onEvent) {
   let buffer = '';
@@ -39,10 +135,17 @@ export async function sendMessage(retryText) {
   if (!text) return;
 
   if (!isRetry) {
-    addChatMessage('user', text);
+    // Show attached images in the user message
+    const attachedCount = state.chatAttachedImages.length;
+    const displayText = attachedCount > 0
+      ? `${text}\n[${attachedCount} image${attachedCount > 1 ? 's' : ''} attached]`
+      : text;
+    addChatMessage('user', displayText);
     chatInput.value = '';
   }
   setChatEnabled(false);
+  attachBtn.disabled = true;
+  picker.style.display = 'none';
   addTypingIndicator();
 
   if (!isRetry) {
@@ -50,9 +153,16 @@ export async function sendMessage(retryText) {
     saveConversation();
   }
 
+  // Collect attached gallery image URLs
+  const additionalImages = state.chatAttachedImages.map(i => i.url);
+  // Clear attachments after sending
+  state.chatAttachedImages = [];
+  renderAttachments();
+
   const body = {
     messages: state.conversationHistory,
     imageData: getCanvasDataURL(),
+    additionalImages: additionalImages.length > 0 ? additionalImages : undefined,
   };
 
   try {
@@ -140,6 +250,7 @@ export async function sendMessage(retryText) {
           state.conversationHistory.pop();
         }
         setChatEnabled(true);
+        attachBtn.disabled = false;
         return;
       }
 
@@ -170,6 +281,7 @@ export async function sendMessage(retryText) {
   }
 
   setChatEnabled(true);
+  attachBtn.disabled = false;
 }
 
 // Event listeners
@@ -177,6 +289,9 @@ chatSend.addEventListener('click', sendMessage);
 
 document.getElementById('new-chat-btn').addEventListener('click', () => {
   clearConversation();
+  state.chatAttachedImages = [];
+  renderAttachments();
+  picker.style.display = 'none';
 });
 
 chatInput.addEventListener('keydown', (e) => {

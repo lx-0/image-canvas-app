@@ -103,4 +103,7 @@ export const state = {
 
   // Filter panel
   filterMode: false,
+
+  // Chat image attachments (gallery images to include in next message)
+  chatAttachedImages: [],
 };

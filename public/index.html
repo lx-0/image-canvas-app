@@ -163,10 +163,19 @@
           <button class="crop-preset-btn" data-ratio="4:5" title="Crop to 4:5 portrait" aria-label="Smart crop to 4:5 aspect ratio">4:5</button>
         </div>
       </div>
+      <div id="chat-attachments" aria-label="Attached images" style="display:none;"></div>
       <div id="chat-input-area">
+        <button id="chat-attach-btn" title="Attach gallery images" aria-label="Attach gallery images to message">📎</button>
         <label for="chat-input" class="sr-only">Chat with AI assistant</label>
         <textarea id="chat-input" placeholder="Ask me to edit the image…" rows="1" aria-label="Type a message to the AI assistant"></textarea>
         <button id="chat-send" aria-label="Send message">Send</button>
+      </div>
+      <div id="chat-image-picker" style="display:none;" aria-label="Pick gallery images to attach">
+        <div id="chat-image-picker-header">
+          <span>Select images to attach</span>
+          <button id="chat-picker-close" aria-label="Close image picker">×</button>
+        </div>
+        <div id="chat-image-picker-grid"></div>
       </div>
     </aside>
   </main>
