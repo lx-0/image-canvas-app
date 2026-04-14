@@ -15,6 +15,10 @@ const nodeGlobals = {
   require: "readonly",
   exports: "readonly",
   global: "readonly",
+  fetch: "readonly",
+  FormData: "readonly",
+  Blob: "readonly",
+  AbortController: "readonly",
 };
 
 const browserGlobals = {

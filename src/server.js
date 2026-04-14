@@ -25,6 +25,8 @@ const config = {
   corsOrigin: process.env.CORS_ORIGIN || '*',
   adminToken: process.env.ADMIN_TOKEN || '',
   assetPrefix: process.env.ASSET_PREFIX || '',
+  llmGatewayKey: process.env.LLM_GATEWAY_KEY || '',
+  llmGatewayUrl: process.env.LLM_GATEWAY_URL || 'https://llm.yester.cloud',
 };
 
 // Structured logging with timestamps
@@ -1206,6 +1208,207 @@ app.post('/api/process', processUpload.single('image'), async (req, res) => {
   }
 });
 
+// ── Image transformation via LLM Gateway ────────────────────────────
+// POST /transform
+// Accepts multipart: field "image" (file, required) + field "prompt" (string, required)
+// Forwards to LLM Gateway gpt-image-1.5, returns transformed image URL.
+
+const TRANSFORM_MAX_SIZE = 4 * 1024 * 1024; // 4MB
+
+const transformUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  },
+  limits: { fileSize: TRANSFORM_MAX_SIZE },
+});
+
+const transformLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({ error: 'Too many transform requests, please try again later' });
+  },
+});
+
+// Classify LLM Gateway errors into user-friendly messages
+function classifyGatewayError(err, status) {
+  const message = err && err.message ? err.message.toLowerCase() : '';
+  if (status === 401 || status === 403 || message.includes('api key') || message.includes('unauthorized')) {
+    return { status: 502, message: 'Image transformation service authentication error.', retryable: false };
+  }
+  if (status === 429 || message.includes('rate limit') || message.includes('quota')) {
+    return { status: 429, message: 'Image transformation service is busy. Please try again later.', retryable: true };
+  }
+  if (status === 408 || message.includes('timeout') || message.includes('deadline')) {
+    return { status: 504, message: 'Image transformation timed out. Please try again.', retryable: true };
+  }
+  if (status >= 500) {
+    return { status: 502, message: 'Image transformation service is temporarily unavailable.', retryable: true };
+  }
+  if (err && (err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ECONNRESET' || err.code === 'UND_ERR_CONNECT_TIMEOUT')) {
+    return { status: 502, message: 'Unable to reach image transformation service.', retryable: true };
+  }
+  return { status: 500, message: 'An unexpected error occurred during image transformation.', retryable: false };
+}
+
+app.post('/transform', transformLimiter, transformUpload.single('image'), async (req, res) => {
+  const requestId = req.requestId;
+
+  if (!config.llmGatewayKey) {
+    return res.status(503).json({ error: 'Image transformation service is not configured. Set the LLM_GATEWAY_KEY environment variable.', requestId });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'An image file is required. Send as "image" field in multipart form data.', requestId });
+  }
+
+  const prompt = req.body && req.body.prompt;
+  if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+    return res.status(400).json({ error: 'A non-empty "prompt" string is required.', requestId });
+  }
+
+  if (prompt.trim().length > 4000) {
+    return res.status(400).json({ error: 'Prompt is too long. Maximum 4000 characters.', requestId });
+  }
+
+  try {
+    logInfo(requestId, `Transform request: ${req.file.originalname} (${req.file.size} bytes), prompt: "${prompt.trim().slice(0, 80)}..."`);
+
+    // Build multipart form for LLM Gateway (OpenAI-compatible images/edits endpoint)
+    const formData = new FormData();
+    const imageBlob = new Blob([req.file.buffer], { type: req.file.mimetype });
+    formData.append('image', imageBlob, req.file.originalname || 'image.png');
+    formData.append('prompt', prompt.trim());
+    formData.append('model', 'image');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+
+    let gatewayRes;
+    try {
+      gatewayRes = await fetch(`${config.llmGatewayUrl}/v1/images/edits`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.llmGatewayKey}`,
+        },
+        body: formData,
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      clearTimeout(timeout);
+      if (fetchErr.name === 'AbortError') {
+        return res.status(504).json({ error: 'Image transformation timed out. Please try again.', retryable: true, requestId });
+      }
+      const classified = classifyGatewayError(fetchErr, 0);
+      logError(requestId, 'LLM Gateway fetch error', fetchErr);
+      return res.status(classified.status).json({ error: classified.message, retryable: classified.retryable, requestId });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (!gatewayRes.ok) {
+      let errorBody;
+      try {
+        errorBody = await gatewayRes.json();
+      } catch {
+        errorBody = { error: { message: `Gateway returned ${gatewayRes.status}` } };
+      }
+      const errMsg = errorBody.error?.message || `Gateway returned ${gatewayRes.status}`;
+      logError(requestId, `LLM Gateway error (${gatewayRes.status})`, { message: errMsg });
+      const classified = classifyGatewayError({ message: errMsg }, gatewayRes.status);
+      return res.status(classified.status).json({ error: classified.message, retryable: classified.retryable, requestId });
+    }
+
+    const result = await gatewayRes.json();
+
+    // OpenAI images/edits returns { data: [{ b64_json: "..." }] } or { data: [{ url: "..." }] }
+    const imageResult = result.data && result.data[0];
+    if (!imageResult) {
+      logError(requestId, 'LLM Gateway returned unexpected response shape', { result });
+      return res.status(502).json({ error: 'Image transformation returned an unexpected response.', requestId });
+    }
+
+    let outputBuffer;
+    if (imageResult.b64_json) {
+      outputBuffer = Buffer.from(imageResult.b64_json, 'base64');
+    } else if (imageResult.url) {
+      // Download the image from the returned URL
+      const imgRes = await fetch(imageResult.url);
+      if (!imgRes.ok) {
+        return res.status(502).json({ error: 'Failed to download transformed image.', requestId });
+      }
+      outputBuffer = Buffer.from(await imgRes.arrayBuffer());
+    } else {
+      return res.status(502).json({ error: 'Image transformation returned no image data.', requestId });
+    }
+
+    // Save to uploads directory
+    const filename = `transformed-${Date.now()}-${Math.round(Math.random() * 1e6)}.png`;
+    const outputPath = path.join(uploadsDir, filename);
+
+    // Convert to PNG via sharp for consistent output
+    await sharp(outputBuffer).png().toFile(outputPath);
+
+    // Generate thumbnail
+    const thumbFilename = `thumb_${filename}`;
+    const thumbPath = path.join(thumbnailsDir, thumbFilename);
+    await sharp(outputBuffer)
+      .resize(200, null, { withoutEnlargement: true })
+      .jpeg({ quality: 75 })
+      .toFile(thumbPath);
+
+    // Get final file metadata
+    const stat = fs.statSync(outputPath);
+    const metadata = await sharp(outputPath).metadata();
+
+    // Insert into database
+    const db = getDb();
+    db.prepare(
+      `INSERT INTO images (filename, original_name, size, width, height, thumbnail_path)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(
+      filename,
+      `transformed_${req.file.originalname || 'image'}`,
+      stat.size,
+      metadata.width || null,
+      metadata.height || null,
+      `/thumbnails/${thumbFilename}`
+    );
+
+    broadcastEvent('image:uploaded', {
+      url: `/uploads/${filename}`,
+      thumbnailUrl: `/thumbnails/${thumbFilename}`,
+      name: filename,
+    });
+
+    logInfo(requestId, `Transform complete: ${filename} (${stat.size} bytes)`);
+
+    res.json({
+      url: `/uploads/${filename}`,
+      thumbnailUrl: `/thumbnails/${thumbFilename}`,
+      filename,
+      width: metadata.width || null,
+      height: metadata.height || null,
+      requestId,
+    });
+  } catch (err) {
+    logError(requestId, 'Transform endpoint error', err);
+    res.status(500).json({ error: `Image transformation failed: ${err.message}`, requestId });
+  }
+});
+
+// Test helper: expose transform config for test injection
+app._setLlmGatewayKey = function (key) {
+  config.llmGatewayKey = key;
+};
+app._setLlmGatewayUrl = function (url) {
+  config.llmGatewayUrl = url;
+};
+
 app.use((err, _req, res, _next) => {
   res.status(400).json({ error: err.message });
 });
@@ -1223,6 +1426,8 @@ app._resetRateLimiters = async function () {
   await apiLimiter.resetKey('127.0.0.1');
   await uploadLimiter.resetKey('::ffff:127.0.0.1');
   await uploadLimiter.resetKey('127.0.0.1');
+  await transformLimiter.resetKey('::ffff:127.0.0.1');
+  await transformLimiter.resetKey('127.0.0.1');
 };
 
 if (require.main === module) {
