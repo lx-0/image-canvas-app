@@ -159,6 +159,6 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/", "test-results/", "data/", "public/uploads/", "public/thumbnails/"],
+    ignores: ["node_modules/", "test-results/", "data/", "public/uploads/", "public/thumbnails/", "pw-browsers/"],
   },
 ];

@@ -5,3 +5,5 @@ public/uploads/*
 !public/uploads/.gitkeep
 public/thumbnails/
 data/
+pw-browsers/
+test-results/
