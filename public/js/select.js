@@ -30,6 +30,13 @@ export function setSelectMode(active) {
     container.classList.remove('text-mode');
     const textPanelEl = document.getElementById('text-panel');
     if (textPanelEl) textPanelEl.classList.remove('visible');
+    // Deactivate shape mode
+    state.shapeMode = false;
+    state.isShaping = false;
+    const shapeBtnEl = document.getElementById('shape-btn');
+    if (shapeBtnEl) shapeBtnEl.classList.remove('active');
+    const shapePanelEl = document.getElementById('shape-panel');
+    if (shapePanelEl) shapePanelEl.classList.remove('visible');
   }
   if (!active) {
     clearSelection();

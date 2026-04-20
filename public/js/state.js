@@ -121,6 +121,12 @@ export const state = {
   textItalic: false,
   textAlign: 'left',
 
+  // Shape tool
+  shapeMode: false,
+  isShaping: false,
+  shapeType: 'rect',
+  shapeFill: false,
+
   // Chat image attachments (gallery images to include in next message)
   chatAttachedImages: [],
 };

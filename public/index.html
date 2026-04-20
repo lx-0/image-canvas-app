@@ -34,6 +34,7 @@
       <button id="draw-btn" class="toolbar-btn" disabled title="Freehand draw (D)" aria-label="Toggle freehand drawing mode (D)">✏ Draw <span class="shortcut">D</span></button>
       <button id="select-btn" class="toolbar-btn" disabled title="Select &amp; Crop (S)" aria-label="Toggle rectangular selection mode (S)">⬚ Select <span class="shortcut">S</span></button>
       <button id="text-btn" class="toolbar-btn" disabled title="Add text (T)" aria-label="Toggle text tool (T)">𝐓 Text <span class="shortcut">T</span></button>
+      <button id="shape-btn" class="toolbar-btn" disabled title="Shapes (G)" aria-label="Toggle shape annotation tools (G)">△ Shapes <span class="shortcut">G</span></button>
       <button id="filter-btn" class="toolbar-btn" disabled title="Adjust filters (F)" aria-label="Toggle filter adjustment panel (F)">◐ Filters <span class="shortcut">F</span></button>
       <button id="layers-btn" class="toolbar-btn" disabled title="Layers (L)" aria-label="Toggle layers panel (L)">◫ Layers <span class="shortcut">L</span></button>
       <button id="compare-btn" class="toolbar-btn" disabled title="Compare original (C)" aria-label="Toggle before/after comparison (C)">◧ Compare <span class="shortcut">C</span></button>
@@ -171,6 +172,22 @@
             <button class="text-align-btn" data-align="center" title="Align center" aria-label="Align center">☰</button>
             <button class="text-align-btn" data-align="right" title="Align right" aria-label="Align right">≡</button>
           </div>
+        </div>
+      </div>
+      <div id="shape-panel" aria-label="Shape controls">
+        <div class="draw-section">
+          <span class="draw-label">Shape</span>
+          <div class="shape-types">
+            <button class="shape-type-btn active" data-shape="rect" title="Rectangle" aria-label="Rectangle tool">▭</button>
+            <button class="shape-type-btn" data-shape="circle" title="Circle / Ellipse" aria-label="Circle tool">○</button>
+            <button class="shape-type-btn" data-shape="line" title="Line" aria-label="Line tool">╲</button>
+            <button class="shape-type-btn" data-shape="arrow" title="Arrow" aria-label="Arrow tool">→</button>
+          </div>
+        </div>
+        <div class="draw-section">
+          <label class="draw-label shape-fill-label" for="shape-fill-toggle">Fill
+            <input type="checkbox" id="shape-fill-toggle" aria-label="Toggle shape fill" />
+          </label>
         </div>
       </div>
       <div id="filter-panel" aria-label="Filter adjustments">
@@ -377,6 +394,7 @@
       <div class="shortcut-row"><span class="label">Toggle draw</span><kbd>D</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle select</span><kbd>S</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle text</span><kbd>T</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle shapes</span><kbd>G</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle filters</span><kbd>F</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle layers</span><kbd>L</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle compare</span><kbd>C</kbd></div>

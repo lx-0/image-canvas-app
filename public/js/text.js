@@ -50,6 +50,13 @@ export function setTextMode(active) {
     container.classList.remove('select-mode');
     const selToolbar = document.getElementById('select-toolbar');
     if (selToolbar) selToolbar.classList.remove('visible');
+    // Deactivate shape mode
+    state.shapeMode = false;
+    state.isShaping = false;
+    const shapeBtnEl = document.getElementById('shape-btn');
+    if (shapeBtnEl) shapeBtnEl.classList.remove('active');
+    const shapePanelEl = document.getElementById('shape-panel');
+    if (shapePanelEl) shapePanelEl.classList.remove('visible');
   }
   if (!active) {
     commitText();

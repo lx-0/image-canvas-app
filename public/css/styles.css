@@ -640,6 +640,70 @@ canvas {
   background: var(--bg-interactive);
 }
 
+/* Shape tool panel */
+#shape-panel {
+  display: none;
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--zoom-bar-bg);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 10px;
+  padding: 10px 14px;
+  z-index: 6;
+  user-select: none;
+  gap: 12px;
+  align-items: center;
+  backdrop-filter: blur(8px);
+}
+
+#shape-panel.visible {
+  display: flex;
+}
+
+.shape-types {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.shape-type-btn {
+  background: transparent;
+  border: 1.5px solid var(--bg-interactive-hover);
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 16px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.shape-type-btn:hover {
+  background: var(--bg-interactive-hover);
+}
+
+.shape-type-btn.active {
+  border-color: var(--accent);
+  background: var(--bg-interactive);
+}
+
+.shape-fill-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.shape-fill-label input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 /* Text mode cursor */
 #canvas-container.text-mode canvas {
   cursor: text;
@@ -1901,6 +1965,13 @@ canvas {
   }
 
   #text-panel.visible {
+    flex-wrap: wrap;
+    bottom: 52px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  #shape-panel.visible {
     flex-wrap: wrap;
     bottom: 52px;
     padding: 8px 10px;
