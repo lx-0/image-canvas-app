@@ -704,6 +704,30 @@ canvas {
   cursor: pointer;
 }
 
+/* Eyedropper tool */
+#canvas-container.eyedropper-mode canvas {
+  cursor: crosshair;
+}
+
+.eyedropper-hex {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  min-width: 60px;
+}
+
+#eyedropper-loupe {
+  position: absolute;
+  z-index: 20;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  display: none;
+  image-rendering: pixelated;
+}
+
 /* Text mode cursor */
 #canvas-container.text-mode canvas {
   cursor: text;

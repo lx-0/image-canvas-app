@@ -88,6 +88,8 @@ export function updateUndoRedoButtons() {
   if (compareBtn) compareBtn.disabled = !hasContent;
   const shapeBtn = document.getElementById('shape-btn');
   if (shapeBtn) shapeBtn.disabled = !hasContent;
+  const eyedropperBtn = document.getElementById('eyedropper-btn');
+  if (eyedropperBtn) eyedropperBtn.disabled = !hasContent;
   const saveProjectBtn = document.getElementById('save-project-btn');
   if (saveProjectBtn) saveProjectBtn.disabled = !hasContent;
 }

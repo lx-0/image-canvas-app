@@ -121,6 +121,9 @@ export const state = {
   textItalic: false,
   textAlign: 'left',
 
+  // Eyedropper tool
+  eyedropperMode: false,
+
   // Shape tool
   shapeMode: false,
   isShaping: false,

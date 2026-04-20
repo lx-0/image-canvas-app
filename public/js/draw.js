@@ -44,6 +44,11 @@ export function setDrawingMode(active) {
     if (shapeBtnEl) shapeBtnEl.classList.remove('active');
     const shapePanelEl = document.getElementById('shape-panel');
     if (shapePanelEl) shapePanelEl.classList.remove('visible');
+    // Deactivate eyedropper
+    state.eyedropperMode = false;
+    const eyedropperBtnEl = document.getElementById('eyedropper-btn');
+    if (eyedropperBtnEl) eyedropperBtnEl.classList.remove('active');
+    container.classList.remove('eyedropper-mode');
   }
   if (!active) {
     state.isDrawing = false;

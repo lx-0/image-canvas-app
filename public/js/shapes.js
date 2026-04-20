@@ -39,6 +39,11 @@ export function setShapeMode(active) {
     container.classList.remove('text-mode');
     const textPanelEl = document.getElementById('text-panel');
     if (textPanelEl) textPanelEl.classList.remove('visible');
+
+    state.eyedropperMode = false;
+    const eyedropperBtnEl = document.getElementById('eyedropper-btn');
+    if (eyedropperBtnEl) eyedropperBtnEl.classList.remove('active');
+    container.classList.remove('eyedropper-mode');
   }
   if (!active) {
     state.isShaping = false;
