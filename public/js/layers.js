@@ -94,6 +94,23 @@ export function addLayer(name) {
   _saveState();
 }
 
+export function addImageLayer(img, name) {
+  const ref = state.layers[0];
+  if (!ref) return;
+  const docW = ref.canvas.width;
+  const docH = ref.canvas.height;
+  const layer = createLayerObj(name || `Pasted ${state.layers.length + 1}`, docW, docH);
+  const scale = Math.min(docW / img.width, docH / img.height, 1);
+  const w = img.width * scale;
+  const h = img.height * scale;
+  layer.ctx.drawImage(img, (docW - w) / 2, (docH - h) / 2, w, h);
+  state.layers.splice(state.activeLayerIndex + 1, 0, layer);
+  state.activeLayerIndex++;
+  compositeLayers();
+  renderLayersPanel();
+  _saveState();
+}
+
 export function deleteLayer(index) {
   if (state.layers.length <= 1) return;
   state.layers.splice(index, 1);

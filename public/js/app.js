@@ -20,7 +20,7 @@ import { addToGallery, renderGallery } from './gallery.js';
 import { initCropPresets } from './crop-presets.js';
 import { initFilterPanel, toggleFilterPanel, isFilterPanelOpen, closeFilterPanel } from './filter-panel.js';
 import { initFilterPresets } from './filter-presets.js';
-import { initLayersFromImage, initLayersPanel, toggleLayersPanel, compositeLayers } from './layers.js';
+import { initLayersFromImage, initLayersPanel, toggleLayersPanel, compositeLayers, addImageLayer } from './layers.js';
 import { saveProject, openProject } from './project-io.js';
 import { toggleCompare, closeCompare, isCompareOpen, updateCompareButton } from './compare.js';
 
@@ -253,13 +253,42 @@ document.addEventListener('paste', (e) => {
   const items = e.clipboardData?.items;
   if (!items) return;
 
+  let hasImage = false;
   for (const item of items) {
     if (item.type.startsWith('image/')) {
+      hasImage = true;
       e.preventDefault();
       const file = item.getAsFile();
-      if (file) uploadAndRender(file);
+      if (!file) return;
+
+      if (state.layers.length === 0) {
+        statusEl.textContent = 'Pasting image…';
+        announce('Pasting image from clipboard');
+        uploadAndRender(file);
+      } else {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          addImageLayer(img);
+          resizeAndDraw();
+          statusEl.textContent = `Pasted as new layer (${img.width}×${img.height})`;
+          announce('Image pasted as new layer');
+          URL.revokeObjectURL(url);
+        };
+        img.onerror = () => {
+          errorEl.textContent = 'Failed to load pasted image.';
+          announce('Failed to load pasted image');
+          URL.revokeObjectURL(url);
+        };
+        img.src = url;
+      }
       return;
     }
+  }
+
+  if (!hasImage) {
+    statusEl.textContent = 'No image data in clipboard';
+    announce('No image data in clipboard');
   }
 });
 
