@@ -92,6 +92,14 @@ export function updateUndoRedoButtons() {
   if (eyedropperBtn) eyedropperBtn.disabled = !hasContent;
   const saveProjectBtn = document.getElementById('save-project-btn');
   if (saveProjectBtn) saveProjectBtn.disabled = !hasContent;
+  const rotateCwBtn = document.getElementById('rotate-cw-btn');
+  if (rotateCwBtn) rotateCwBtn.disabled = !hasContent;
+  const rotateCcwBtn = document.getElementById('rotate-ccw-btn');
+  if (rotateCcwBtn) rotateCcwBtn.disabled = !hasContent;
+  const flipHBtn = document.getElementById('flip-h-btn');
+  if (flipHBtn) flipHBtn.disabled = !hasContent;
+  const flipVBtn = document.getElementById('flip-v-btn');
+  if (flipVBtn) flipVBtn.disabled = !hasContent;
 }
 
 // --- Canvas drawing ---

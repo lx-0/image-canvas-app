@@ -23,6 +23,7 @@ import { initFilterPresets } from './filter-presets.js';
 import { initLayersFromImage, initLayersPanel, toggleLayersPanel, compositeLayers, addImageLayer } from './layers.js';
 import { saveProject, openProject } from './project-io.js';
 import { toggleCompare, closeCompare, isCompareOpen, updateCompareButton } from './compare.js';
+import { executeCommands } from './commands.js';
 
 let form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
     exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
@@ -408,6 +409,18 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
+  if (e.key === 'R' && !isTyping && !e.ctrlKey && !e.metaKey && e.shiftKey) {
+    e.preventDefault();
+    executeCommands([{ action: 'rotate', degrees: -90 }]);
+    return;
+  }
+
+  if (e.key === 'r' && !isTyping && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    e.preventDefault();
+    executeCommands([{ action: 'rotate', degrees: 90 }]);
+    return;
+  }
+
   if (e.key === 'f' && !isTyping && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     toggleFilterPanel();
@@ -463,6 +476,20 @@ initLayersPanel();
 // --- Project save/load buttons ---
 els.saveProjectBtn.addEventListener('click', saveProject);
 els.openProjectBtn.addEventListener('click', openProject);
+
+// --- Rotate & Flip toolbar buttons ---
+document.getElementById('rotate-cw-btn').addEventListener('click', () => {
+  executeCommands([{ action: 'rotate', degrees: 90 }]);
+});
+document.getElementById('rotate-ccw-btn').addEventListener('click', () => {
+  executeCommands([{ action: 'rotate', degrees: -90 }]);
+});
+document.getElementById('flip-h-btn').addEventListener('click', () => {
+  executeCommands([{ action: 'flip', direction: 'horizontal' }]);
+});
+document.getElementById('flip-v-btn').addEventListener('click', () => {
+  executeCommands([{ action: 'flip', direction: 'vertical' }]);
+});
 
 // --- Register service worker ---
 if ('serviceWorker' in navigator) {
