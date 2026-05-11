@@ -418,6 +418,40 @@ canvas {
   cursor: crosshair;
 }
 
+/* Eraser button active state */
+#eraser-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-hover);
+}
+
+/* Eraser mode cursor */
+#canvas-container.eraser-mode canvas {
+  cursor: crosshair;
+}
+
+/* Eraser panel */
+#eraser-panel {
+  display: none;
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--zoom-bar-bg);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 10px;
+  padding: 10px 14px;
+  z-index: 6;
+  user-select: none;
+  gap: 12px;
+  align-items: center;
+  backdrop-filter: blur(8px);
+}
+
+#eraser-panel.visible {
+  display: flex;
+}
+
 /* Drawing panel */
 #draw-panel {
   display: none;
@@ -460,7 +494,8 @@ canvas {
   align-items: center;
 }
 
-.brush-size-btn {
+.brush-size-btn,
+.eraser-size-btn {
   background: transparent;
   border: 1.5px solid var(--bg-interactive-hover);
   border-radius: 6px;
@@ -473,11 +508,13 @@ canvas {
   transition: background 0.15s, border-color 0.15s;
 }
 
-.brush-size-btn:hover {
+.brush-size-btn:hover,
+.eraser-size-btn:hover {
   background: var(--bg-interactive-hover);
 }
 
-.brush-size-btn.active {
+.brush-size-btn.active,
+.eraser-size-btn.active {
   border-color: var(--accent);
   background: var(--bg-interactive);
 }
@@ -1982,6 +2019,13 @@ canvas {
   }
 
   #draw-panel.visible {
+    flex-wrap: wrap;
+    bottom: 52px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  #eraser-panel.visible {
     flex-wrap: wrap;
     bottom: 52px;
     padding: 8px 10px;

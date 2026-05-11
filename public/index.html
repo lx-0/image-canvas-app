@@ -32,6 +32,7 @@
       <button id="open-project-btn" class="toolbar-btn" title="Open Project (Ctrl+Shift+O)" aria-label="Open project from JSON file (Ctrl+Shift+O)">📂 Open Project <span class="shortcut">Ctrl+Shift+O</span></button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="draw-btn" class="toolbar-btn" disabled title="Freehand draw (D)" aria-label="Toggle freehand drawing mode (D)">✏ Draw <span class="shortcut">D</span></button>
+      <button id="eraser-btn" class="toolbar-btn" disabled title="Eraser (E)" aria-label="Toggle eraser tool (E)">⌫ Erase <span class="shortcut">E</span></button>
       <button id="select-btn" class="toolbar-btn" disabled title="Select &amp; Crop (S)" aria-label="Toggle rectangular selection mode (S)">⬚ Select <span class="shortcut">S</span></button>
       <button id="text-btn" class="toolbar-btn" disabled title="Add text (T)" aria-label="Toggle text tool (T)">𝐓 Text <span class="shortcut">T</span></button>
       <button id="shape-btn" class="toolbar-btn" disabled title="Shapes (G)" aria-label="Toggle shape annotation tools (G)">△ Shapes <span class="shortcut">G</span></button>
@@ -141,6 +142,23 @@
           <div class="opacity-row">
             <input type="range" id="brush-opacity" min="0.1" max="1" step="0.1" value="1" aria-label="Brush opacity" />
             <span id="brush-opacity-value">100%</span>
+          </div>
+        </div>
+      </div>
+      <div id="eraser-panel" aria-label="Eraser controls">
+        <div class="draw-section">
+          <span class="draw-label">Size</span>
+          <div class="brush-sizes">
+            <button class="eraser-size-btn" data-size="2" title="Small eraser" aria-label="Small eraser size"><span class="brush-dot" style="width:6px;height:6px"></span></button>
+            <button class="eraser-size-btn active" data-size="4" title="Medium eraser" aria-label="Medium eraser size"><span class="brush-dot" style="width:10px;height:10px"></span></button>
+            <button class="eraser-size-btn" data-size="10" title="Large eraser" aria-label="Large eraser size"><span class="brush-dot" style="width:16px;height:16px"></span></button>
+          </div>
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">Opacity</span>
+          <div class="opacity-row">
+            <input type="range" id="eraser-opacity" min="0.1" max="1" step="0.1" value="1" aria-label="Eraser opacity" />
+            <span id="eraser-opacity-value">100%</span>
           </div>
         </div>
       </div>
@@ -400,6 +418,7 @@
       <div class="shortcut-row"><span class="label">Zoom out</span><kbd>Ctrl+−</kbd></div>
       <div class="shortcut-row"><span class="label">Reset zoom</span><kbd>Ctrl+0</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle draw</span><kbd>D</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle eraser</span><kbd>E</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle select</span><kbd>S</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle text</span><kbd>T</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle shapes</span><kbd>G</kbd></div>

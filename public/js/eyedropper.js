@@ -45,6 +45,14 @@ export function setEyedropperMode(active) {
     if (shapeBtnEl) shapeBtnEl.classList.remove('active');
     const shapePanelEl = document.getElementById('shape-panel');
     if (shapePanelEl) shapePanelEl.classList.remove('visible');
+
+    state.eraserMode = false;
+    state.isErasing = false;
+    const eraserBtnEl = document.getElementById('eraser-btn');
+    if (eraserBtnEl) eraserBtnEl.classList.remove('active');
+    const eraserPanelEl = document.getElementById('eraser-panel');
+    if (eraserPanelEl) eraserPanelEl.classList.remove('visible');
+    container.classList.remove('eraser-mode');
   }
   if (!active) {
     hideLoupe();

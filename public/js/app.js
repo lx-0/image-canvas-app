@@ -10,6 +10,7 @@ import './chat.js'; // Initialize chat event listeners
 import './analyze.js'; // Image analysis / describe button
 import './context-menu.js'; // Canvas right-click context menu
 import { setDrawingMode } from './draw.js'; // Freehand drawing tool
+import { setEraserMode } from './eraser.js'; // Eraser tool
 import { setSelectMode } from './select.js'; // Rectangular selection tool
 import { setTextMode } from './text.js'; // Text placement tool
 import { setShapeMode } from './shapes.js'; // Shape annotation tools

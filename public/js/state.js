@@ -121,6 +121,12 @@ export const state = {
   textItalic: false,
   textAlign: 'left',
 
+  // Eraser tool
+  eraserMode: false,
+  isErasing: false,
+  eraserSize: 4,
+  eraserOpacity: 1.0,
+
   // Eyedropper tool
   eyedropperMode: false,
 

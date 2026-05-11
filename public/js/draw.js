@@ -49,6 +49,14 @@ export function setDrawingMode(active) {
     const eyedropperBtnEl = document.getElementById('eyedropper-btn');
     if (eyedropperBtnEl) eyedropperBtnEl.classList.remove('active');
     container.classList.remove('eyedropper-mode');
+    // Deactivate eraser
+    state.eraserMode = false;
+    state.isErasing = false;
+    const eraserBtnEl = document.getElementById('eraser-btn');
+    if (eraserBtnEl) eraserBtnEl.classList.remove('active');
+    const eraserPanelEl = document.getElementById('eraser-panel');
+    if (eraserPanelEl) eraserPanelEl.classList.remove('visible');
+    container.classList.remove('eraser-mode');
   }
   if (!active) {
     state.isDrawing = false;
