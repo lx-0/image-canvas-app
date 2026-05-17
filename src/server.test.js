@@ -740,3 +740,228 @@ describe('resizeForApi', () => {
     expect(meta.height).toBe(1536);
   });
 });
+
+describe('Transform endpoint', () => {
+  let transformTestImage;
+
+  beforeAll(async () => {
+    await app._resetRateLimiters();
+    transformTestImage = path.join(testDir, 'transform-test.png');
+    await sharp({
+      create: { width: 50, height: 50, channels: 3, background: { r: 0, g: 100, b: 200 } },
+    }).png().toFile(transformTestImage);
+  });
+
+  beforeEach(async () => {
+    await app._resetRateLimiters();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns 503 when LLM_GATEWAY_KEY is not set', async () => {
+    app._setLlmGatewayKey('');
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage)
+      .field('prompt', 'make it red');
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/not configured/i);
+  });
+
+  it('returns 400 when no image is provided', async () => {
+    app._setLlmGatewayKey('test-key');
+    const res = await request(app)
+      .post('/transform')
+      .field('prompt', 'make it red');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/image/i);
+  });
+
+  it('returns 400 when no prompt is provided', async () => {
+    app._setLlmGatewayKey('test-key');
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/prompt/i);
+  });
+
+  it('returns 400 when prompt is empty string', async () => {
+    app._setLlmGatewayKey('test-key');
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage)
+      .field('prompt', '   ');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/prompt/i);
+  });
+
+  it('returns 400 when prompt exceeds 4000 chars', async () => {
+    app._setLlmGatewayKey('test-key');
+    const longPrompt = 'a'.repeat(4001);
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage)
+      .field('prompt', longPrompt);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/too long/i);
+  });
+
+  it('returns 400 when file is not an image', async () => {
+    app._setLlmGatewayKey('test-key');
+    const textFile = path.join(testDir, 'transform-notimage.txt');
+    fs.writeFileSync(textFile, 'this is not an image');
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', textFile)
+      .field('prompt', 'make it red');
+    expect(res.status).toBe(400);
+  });
+
+  it('returns transformed image URL on success with b64_json response', async () => {
+    app._setLlmGatewayKey('test-key');
+    app._setLlmGatewayUrl('http://mock-gateway.test');
+
+    // Create a small output PNG as base64
+    const outputBuf = await sharp({
+      create: { width: 50, height: 50, channels: 3, background: { r: 255, g: 0, b: 0 } },
+    }).png().toBuffer();
+    const b64Output = outputBuf.toString('base64');
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ b64_json: b64Output }] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage)
+      .field('prompt', 'make it red');
+
+    expect(res.status).toBe(200);
+    expect(res.body.url).toMatch(/^\/uploads\/transformed-/);
+    expect(res.body.thumbnailUrl).toMatch(/^\/thumbnails\/thumb_transformed-/);
+    expect(res.body.filename).toMatch(/^transformed-/);
+    expect(res.body.requestId).toBeDefined();
+    expect(res.body.width).toBeDefined();
+    expect(res.body.height).toBeDefined();
+
+    // Verify fetch was called with correct params
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toBe('http://mock-gateway.test/v1/images/edits');
+    expect(opts.method).toBe('POST');
+    expect(opts.headers['Authorization']).toBe('Bearer test-key');
+  });
+
+  it('returns transformed image URL on success with url response', async () => {
+    app._setLlmGatewayKey('test-key');
+    app._setLlmGatewayUrl('http://mock-gateway.test');
+
+    const outputBuf = await sharp({
+      create: { width: 50, height: 50, channels: 3, background: { r: 0, g: 255, b: 0 } },
+    }).png().toBuffer();
+
+    // Mock the gateway returning a URL, and the image download
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ url: 'http://mock-cdn.test/image.png' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => outputBuf.buffer.slice(outputBuf.byteOffset, outputBuf.byteOffset + outputBuf.byteLength),
+      });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage)
+      .field('prompt', 'make it green');
+
+    expect(res.status).toBe(200);
+    expect(res.body.url).toMatch(/^\/uploads\/transformed-/);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns 502 when gateway returns auth error', async () => {
+    app._setLlmGatewayKey('bad-key');
+    app._setLlmGatewayUrl('http://mock-gateway.test');
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { message: 'Unauthorized' } }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage)
+      .field('prompt', 'make it red');
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toMatch(/authentication/i);
+    expect(res.body.retryable).toBe(false);
+  });
+
+  it('returns 502 when gateway returns 500', async () => {
+    app._setLlmGatewayKey('test-key');
+    app._setLlmGatewayUrl('http://mock-gateway.test');
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { message: 'Internal server error' } }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage)
+      .field('prompt', 'make it red');
+
+    expect(res.status).toBe(502);
+    expect(res.body.retryable).toBe(true);
+  });
+
+  it('returns 502 when gateway returns empty data', async () => {
+    app._setLlmGatewayKey('test-key');
+    app._setLlmGatewayUrl('http://mock-gateway.test');
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage)
+      .field('prompt', 'make it red');
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toMatch(/unexpected response/i);
+  });
+
+  it('returns 502 when fetch throws connection error', async () => {
+    app._setLlmGatewayKey('test-key');
+    app._setLlmGatewayUrl('http://mock-gateway.test');
+
+    const connErr = new Error('connection refused');
+    connErr.code = 'ECONNREFUSED';
+    const mockFetch = vi.fn().mockRejectedValue(connErr);
+    vi.stubGlobal('fetch', mockFetch);
+
+    const res = await request(app)
+      .post('/transform')
+      .attach('image', transformTestImage)
+      .field('prompt', 'make it red');
+
+    expect(res.status).toBe(502);
+    expect(res.body.retryable).toBe(true);
+  });
+});
