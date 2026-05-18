@@ -40,6 +40,8 @@
       <span id="eyedropper-hex" class="eyedropper-hex" aria-live="polite"></span>
       <button id="floodfill-btn" class="toolbar-btn" disabled title="Flood Fill (B)" aria-label="Toggle flood fill tool (B)">🪣 Fill <span class="shortcut">B</span></button>
       <button id="crop-btn" class="toolbar-btn" disabled title="Crop (C)" aria-label="Toggle interactive crop tool (C)">⬔ Crop <span class="shortcut">C</span></button>
+      <button id="lasso-btn" class="toolbar-btn" disabled title="Lasso Select (L)" aria-label="Toggle lasso selection tool (L)">◌ Lasso <span class="shortcut">L</span></button>
+      <button id="magicwand-btn" class="toolbar-btn" disabled title="Magic Wand (W)" aria-label="Toggle magic wand selection tool (W)">✦ Wand <span class="shortcut">W</span></button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="rotate-cw-btn" class="toolbar-btn" disabled title="Rotate 90° clockwise (R)" aria-label="Rotate image 90 degrees clockwise (R)">↻ Rotate CW <span class="shortcut">R</span></button>
       <button id="rotate-ccw-btn" class="toolbar-btn" disabled title="Rotate 90° counter-clockwise (Shift+R)" aria-label="Rotate image 90 degrees counter-clockwise (Shift+R)">↺ Rotate CCW <span class="shortcut">⇧R</span></button>
@@ -47,7 +49,7 @@
       <button id="flip-v-btn" class="toolbar-btn" disabled title="Flip vertical" aria-label="Flip image vertically">⇕ Flip V</button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="filter-btn" class="toolbar-btn" disabled title="Adjust filters (F)" aria-label="Toggle filter adjustment panel (F)">◐ Filters <span class="shortcut">F</span></button>
-      <button id="layers-btn" class="toolbar-btn" disabled title="Layers (L)" aria-label="Toggle layers panel (L)">◫ Layers <span class="shortcut">L</span></button>
+      <button id="layers-btn" class="toolbar-btn" disabled title="Layers" aria-label="Toggle layers panel">◫ Layers</button>
       <button id="compare-btn" class="toolbar-btn" disabled title="Compare original (V)" aria-label="Toggle before/after comparison (V)">◧ Compare <span class="shortcut">V</span></button>
     </div>
     <button id="theme-toggle" class="toolbar-btn" title="Toggle light/dark theme (Ctrl+Shift+T)" aria-label="Toggle light or dark theme">
@@ -272,9 +274,20 @@
         </div>
         <div id="layers-list" role="list" aria-label="Layer stack"></div>
       </div>
+      <div id="magicwand-panel" aria-label="Magic wand controls">
+        <div class="draw-section">
+          <span class="draw-label">Tolerance</span>
+          <div class="opacity-row">
+            <input type="range" id="magicwand-tolerance" min="0" max="255" value="32" aria-label="Color tolerance" />
+            <span id="magicwand-tolerance-value">32</span>
+          </div>
+        </div>
+      </div>
       <div id="select-toolbar" aria-label="Selection actions">
         <span id="select-dims" aria-label="Selection dimensions"></span>
         <button id="select-crop-btn" aria-label="Crop to selection">Crop</button>
+        <button id="select-delete-btn" aria-label="Delete selection">Delete</button>
+        <button id="select-copy-btn" aria-label="Copy selection">Copy</button>
         <button id="select-cancel-btn" aria-label="Cancel selection">Cancel</button>
       </div>
       <div id="canvas-context-menu" role="menu" aria-label="Canvas actions">
@@ -464,9 +477,12 @@
       <div class="shortcut-row"><span class="label">Rotate clockwise</span><kbd>R</kbd></div>
       <div class="shortcut-row"><span class="label">Rotate counter-clockwise</span><kbd>Shift+R</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle filters</span><kbd>F</kbd></div>
-      <div class="shortcut-row"><span class="label">Toggle layers</span><kbd>L</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle lasso</span><kbd>L</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle magic wand</span><kbd>W</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle crop</span><kbd>C</kbd></div>
+      <div class="shortcut-row"><span class="label">Delete selection</span><kbd>Delete</kbd></div>
       <div class="shortcut-row"><span class="label">Apply crop</span><kbd>Enter</kbd></div>
+      <div class="shortcut-row"><span class="label">Apply selection crop</span><kbd>Enter</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle compare</span><kbd>V</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>

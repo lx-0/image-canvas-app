@@ -106,6 +106,10 @@ export function updateUndoRedoButtons() {
   if (flipHBtn) flipHBtn.disabled = !hasContent;
   const flipVBtn = document.getElementById('flip-v-btn');
   if (flipVBtn) flipVBtn.disabled = !hasContent;
+  const lassoBtn = document.getElementById('lasso-btn');
+  if (lassoBtn) lassoBtn.disabled = !hasContent;
+  const wandBtn = document.getElementById('magicwand-btn');
+  if (wandBtn) wandBtn.disabled = !hasContent;
 }
 
 // --- Canvas drawing ---
@@ -217,6 +221,8 @@ container.addEventListener('mousedown', (e) => {
   if (state.selectMode && e.button === 0) return;
   if (state.floodFillMode && e.button === 0) return;
   if (state.cropMode && e.button === 0) return;
+  if (state.lassoMode && e.button === 0) return;
+  if (state.magicWandMode && e.button === 0) return;
   if (e.button === 1 || (e.button === 0 && state.zoomLevel !== 1)) {
     if (e.button === 0 && state.zoomLevel === 1) return;
     e.preventDefault();

@@ -90,6 +90,21 @@ function deactivateOtherTools() {
   const floodfillPanelEl = document.getElementById('floodfill-panel');
   if (floodfillPanelEl) floodfillPanelEl.classList.remove('visible');
   container.classList.remove('floodfill-mode');
+
+  state.lassoMode = false;
+  state.isLassoing = false;
+  state.lassoPoints = [];
+  const lassoBtnEl = document.getElementById('lasso-btn');
+  if (lassoBtnEl) lassoBtnEl.classList.remove('active');
+  container.classList.remove('lasso-mode');
+
+  state.magicWandMode = false;
+  state.wandMask = null;
+  const wandBtnEl = document.getElementById('magicwand-btn');
+  if (wandBtnEl) wandBtnEl.classList.remove('active');
+  const wandPanelEl = document.getElementById('magicwand-panel');
+  if (wandPanelEl) wandPanelEl.classList.remove('visible');
+  container.classList.remove('magicwand-mode');
 }
 
 // --- Coordinate conversion ---

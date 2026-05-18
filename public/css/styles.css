@@ -487,6 +487,36 @@ canvas {
   cursor: crosshair;
 }
 
+#canvas-container.lasso-mode canvas {
+  cursor: crosshair;
+}
+
+#canvas-container.magicwand-mode canvas {
+  cursor: crosshair;
+}
+
+/* Magic wand panel */
+#magicwand-panel {
+  display: none;
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--zoom-bar-bg);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 10px;
+  padding: 10px 14px;
+  z-index: 6;
+  user-select: none;
+  gap: 12px;
+  align-items: center;
+  backdrop-filter: blur(8px);
+}
+
+#magicwand-panel.visible {
+  display: flex;
+}
+
 /* Drawing panel */
 #draw-panel {
   display: none;
@@ -2169,6 +2199,13 @@ canvas {
   }
 
   #floodfill-panel.visible {
+    flex-wrap: wrap;
+    bottom: 52px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  #magicwand-panel.visible {
     flex-wrap: wrap;
     bottom: 52px;
     padding: 8px 10px;

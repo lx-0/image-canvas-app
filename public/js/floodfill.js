@@ -66,6 +66,21 @@ export function setFloodFillMode(active) {
     const cropPanelEl = document.getElementById('crop-panel');
     if (cropPanelEl) cropPanelEl.classList.remove('visible');
     container.classList.remove('crop-mode');
+
+    state.lassoMode = false;
+    state.isLassoing = false;
+    state.lassoPoints = [];
+    const lassoBtnEl = document.getElementById('lasso-btn');
+    if (lassoBtnEl) lassoBtnEl.classList.remove('active');
+    container.classList.remove('lasso-mode');
+
+    state.magicWandMode = false;
+    state.wandMask = null;
+    const wandBtnEl = document.getElementById('magicwand-btn');
+    if (wandBtnEl) wandBtnEl.classList.remove('active');
+    const wandPanelEl = document.getElementById('magicwand-panel');
+    if (wandPanelEl) wandPanelEl.classList.remove('visible');
+    container.classList.remove('magicwand-mode');
   }
 }
 

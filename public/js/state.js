@@ -144,6 +144,18 @@ export const state = {
   // Crop tool
   cropMode: false,
 
+  // Lasso tool
+  lassoMode: false,
+  isLassoing: false,
+  lassoPoints: [],
+
+  // Magic wand tool
+  magicWandMode: false,
+  magicWandTolerance: 32,
+  wandMask: null,
+  wandMaskWidth: 0,
+  wandMaskHeight: 0,
+
   // Chat image attachments (gallery images to include in next message)
   chatAttachedImages: [],
 };

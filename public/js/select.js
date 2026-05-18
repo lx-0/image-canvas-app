@@ -3,7 +3,7 @@ import { els, state } from './state.js';
 import { saveState, resizeAndDraw } from './canvas.js';
 import { setDrawingMode } from './draw.js';
 import { executeCrop } from './filters.js';
-import { compositeLayers } from './layers.js';
+import { getActiveLayer, getActiveCtx, compositeLayers } from './layers.js';
 
 const { canvas, ctx, container, statusEl } = els;
 
@@ -12,6 +12,8 @@ const selectBtn = document.getElementById('select-btn');
 const selToolbar = document.getElementById('select-toolbar');
 const selDims = document.getElementById('select-dims');
 const selCropBtn = document.getElementById('select-crop-btn');
+const selDeleteBtn = document.getElementById('select-delete-btn');
+const selCopyBtn = document.getElementById('select-copy-btn');
 const selCancelBtn = document.getElementById('select-cancel-btn');
 
 // --- Toggle selection mode ---
@@ -64,6 +66,21 @@ export function setSelectMode(active) {
     const cropPanelEl = document.getElementById('crop-panel');
     if (cropPanelEl) cropPanelEl.classList.remove('visible');
     container.classList.remove('crop-mode');
+
+    state.lassoMode = false;
+    state.isLassoing = false;
+    state.lassoPoints = [];
+    const lassoBtnEl = document.getElementById('lasso-btn');
+    if (lassoBtnEl) lassoBtnEl.classList.remove('active');
+    container.classList.remove('lasso-mode');
+
+    state.magicWandMode = false;
+    state.wandMask = null;
+    const wandBtnEl = document.getElementById('magicwand-btn');
+    if (wandBtnEl) wandBtnEl.classList.remove('active');
+    const wandPanelEl = document.getElementById('magicwand-panel');
+    if (wandPanelEl) wandPanelEl.classList.remove('visible');
+    container.classList.remove('magicwand-mode');
   }
   if (!active) {
     clearSelection();
@@ -287,6 +304,58 @@ selCropBtn.addEventListener('click', () => {
   setSelectMode(false);
 });
 
+// --- Delete selection (clear to transparent) ---
+selDeleteBtn.addEventListener('click', () => {
+  if (!state.selectMode || !state.selRect) return;
+  const layer = getActiveLayer();
+  if (!layer) return;
+
+  const { x, y, w, h } = state.selRect;
+  const scaleX = layer.canvas.width / canvas.width;
+  const scaleY = layer.canvas.height / canvas.height;
+  const lx = Math.round(x * scaleX);
+  const ly = Math.round(y * scaleY);
+  const lw = Math.round(w * scaleX);
+  const lh = Math.round(h * scaleY);
+
+  const layerCtx = getActiveCtx();
+  layerCtx.clearRect(lx, ly, lw, lh);
+  compositeLayers();
+  resizeAndDraw();
+  saveState();
+  statusEl.textContent = 'Selection deleted';
+  setSelectMode(false);
+});
+
+// --- Copy selection ---
+selCopyBtn.addEventListener('click', async () => {
+  if (!state.selectMode || !state.selRect) return;
+  const layer = getActiveLayer();
+  if (!layer) return;
+
+  const { x, y, w, h } = state.selRect;
+  const scaleX = layer.canvas.width / canvas.width;
+  const scaleY = layer.canvas.height / canvas.height;
+  const lx = Math.round(x * scaleX);
+  const ly = Math.round(y * scaleY);
+  const lw = Math.round(w * scaleX);
+  const lh = Math.round(h * scaleY);
+
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = lw;
+  tmpCanvas.height = lh;
+  const tmpCtx = tmpCanvas.getContext('2d');
+  tmpCtx.drawImage(layer.canvas, lx, ly, lw, lh, 0, 0, lw, lh);
+
+  try {
+    const blob = await new Promise(resolve => tmpCanvas.toBlob(resolve, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    statusEl.textContent = 'Selection copied';
+  } catch (_err) {
+    statusEl.textContent = 'Copy failed';
+  }
+});
+
 // --- Cancel ---
 selCancelBtn.addEventListener('click', () => {
   setSelectMode(false);
@@ -300,6 +369,10 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Enter' && state.selectMode && state.selRect && state.selRect.w > 2) {
     selCropBtn.click();
+    return;
+  }
+  if (e.key === 'Delete' && state.selectMode && state.selRect && state.selRect.w > 2) {
+    selDeleteBtn.click();
     return;
   }
   if (e.key === 's' || e.key === 'S') {
