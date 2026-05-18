@@ -39,6 +39,7 @@
       <button id="eyedropper-btn" class="toolbar-btn" disabled title="Eyedropper (I)" aria-label="Toggle eyedropper color picker (I)">💧 Pick <span class="shortcut">I</span></button>
       <span id="eyedropper-hex" class="eyedropper-hex" aria-live="polite"></span>
       <button id="floodfill-btn" class="toolbar-btn" disabled title="Flood Fill (B)" aria-label="Toggle flood fill tool (B)">🪣 Fill <span class="shortcut">B</span></button>
+      <button id="crop-btn" class="toolbar-btn" disabled title="Crop (C)" aria-label="Toggle interactive crop tool (C)">⬔ Crop <span class="shortcut">C</span></button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="rotate-cw-btn" class="toolbar-btn" disabled title="Rotate 90° clockwise (R)" aria-label="Rotate image 90 degrees clockwise (R)">↻ Rotate CW <span class="shortcut">R</span></button>
       <button id="rotate-ccw-btn" class="toolbar-btn" disabled title="Rotate 90° counter-clockwise (Shift+R)" aria-label="Rotate image 90 degrees counter-clockwise (Shift+R)">↺ Rotate CCW <span class="shortcut">⇧R</span></button>
@@ -47,7 +48,7 @@
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="filter-btn" class="toolbar-btn" disabled title="Adjust filters (F)" aria-label="Toggle filter adjustment panel (F)">◐ Filters <span class="shortcut">F</span></button>
       <button id="layers-btn" class="toolbar-btn" disabled title="Layers (L)" aria-label="Toggle layers panel (L)">◫ Layers <span class="shortcut">L</span></button>
-      <button id="compare-btn" class="toolbar-btn" disabled title="Compare original (C)" aria-label="Toggle before/after comparison (C)">◧ Compare <span class="shortcut">C</span></button>
+      <button id="compare-btn" class="toolbar-btn" disabled title="Compare original (V)" aria-label="Toggle before/after comparison (V)">◧ Compare <span class="shortcut">V</span></button>
     </div>
     <button id="theme-toggle" class="toolbar-btn" title="Toggle light/dark theme (Ctrl+Shift+T)" aria-label="Toggle light or dark theme">
       <span id="theme-icon">☀</span>
@@ -229,6 +230,26 @@
           <label class="draw-label floodfill-aa-label" for="floodfill-antialias">Anti-alias
             <input type="checkbox" id="floodfill-antialias" aria-label="Toggle anti-alias fill edges" />
           </label>
+        </div>
+      </div>
+      <div id="crop-panel" aria-label="Crop controls">
+        <div class="draw-section">
+          <span class="draw-label">Ratio</span>
+          <div class="crop-aspect-btns">
+            <button class="crop-aspect-btn active" data-ratio="free" aria-label="Free aspect ratio">Free</button>
+            <button class="crop-aspect-btn" data-ratio="1:1" aria-label="1:1 aspect ratio">1:1</button>
+            <button class="crop-aspect-btn" data-ratio="4:3" aria-label="4:3 aspect ratio">4:3</button>
+            <button class="crop-aspect-btn" data-ratio="16:9" aria-label="16:9 aspect ratio">16:9</button>
+            <button class="crop-aspect-btn" data-ratio="9:16" aria-label="9:16 aspect ratio">9:16</button>
+            <button class="crop-aspect-btn" data-ratio="4:5" aria-label="4:5 aspect ratio">4:5</button>
+          </div>
+        </div>
+        <div class="draw-section crop-info">
+          <span id="crop-dims" class="crop-dims" aria-live="polite"></span>
+        </div>
+        <div class="draw-section crop-actions">
+          <button id="crop-apply-btn" class="crop-action-btn crop-apply" aria-label="Apply crop (Enter)">Apply</button>
+          <button id="crop-cancel-btn" class="crop-action-btn" aria-label="Cancel crop (Esc)">Cancel</button>
         </div>
       </div>
       <div id="filter-panel" aria-label="Filter adjustments">
@@ -444,7 +465,9 @@
       <div class="shortcut-row"><span class="label">Rotate counter-clockwise</span><kbd>Shift+R</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle filters</span><kbd>F</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle layers</span><kbd>L</kbd></div>
-      <div class="shortcut-row"><span class="label">Toggle compare</span><kbd>C</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle crop</span><kbd>C</kbd></div>
+      <div class="shortcut-row"><span class="label">Apply crop</span><kbd>Enter</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle compare</span><kbd>V</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>
       <div class="shortcut-row"><span class="label">Save project</span><kbd>Ctrl+Shift+S</kbd></div>

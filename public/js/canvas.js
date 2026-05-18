@@ -94,6 +94,8 @@ export function updateUndoRedoButtons() {
   if (eyedropperBtn) eyedropperBtn.disabled = !hasContent;
   const floodfillBtn = document.getElementById('floodfill-btn');
   if (floodfillBtn) floodfillBtn.disabled = !hasContent;
+  const cropBtnEl = document.getElementById('crop-btn');
+  if (cropBtnEl) cropBtnEl.disabled = !hasContent;
   const saveProjectBtn = document.getElementById('save-project-btn');
   if (saveProjectBtn) saveProjectBtn.disabled = !hasContent;
   const rotateCwBtn = document.getElementById('rotate-cw-btn');
@@ -214,6 +216,7 @@ container.addEventListener('mousedown', (e) => {
   if (state.drawingMode && e.button === 0) return;
   if (state.selectMode && e.button === 0) return;
   if (state.floodFillMode && e.button === 0) return;
+  if (state.cropMode && e.button === 0) return;
   if (e.button === 1 || (e.button === 0 && state.zoomLevel !== 1)) {
     if (e.button === 0 && state.zoomLevel === 1) return;
     e.preventDefault();

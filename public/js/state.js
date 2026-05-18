@@ -141,6 +141,9 @@ export const state = {
   floodFillTolerance: 32,
   floodFillAntiAlias: false,
 
+  // Crop tool
+  cropMode: false,
+
   // Chat image attachments (gallery images to include in next message)
   chatAttachedImages: [],
 };

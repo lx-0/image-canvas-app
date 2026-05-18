@@ -59,6 +59,13 @@ export function setFloodFillMode(active) {
     const eyedropperBtnEl = document.getElementById('eyedropper-btn');
     if (eyedropperBtnEl) eyedropperBtnEl.classList.remove('active');
     container.classList.remove('eyedropper-mode');
+
+    state.cropMode = false;
+    const cropBtnEl = document.getElementById('crop-btn');
+    if (cropBtnEl) cropBtnEl.classList.remove('active');
+    const cropPanelEl = document.getElementById('crop-panel');
+    if (cropPanelEl) cropPanelEl.classList.remove('visible');
+    container.classList.remove('crop-mode');
   }
 }
 
