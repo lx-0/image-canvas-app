@@ -57,6 +57,13 @@ export function setDrawingMode(active) {
     const eraserPanelEl = document.getElementById('eraser-panel');
     if (eraserPanelEl) eraserPanelEl.classList.remove('visible');
     container.classList.remove('eraser-mode');
+
+    state.floodFillMode = false;
+    const floodfillBtnEl = document.getElementById('floodfill-btn');
+    if (floodfillBtnEl) floodfillBtnEl.classList.remove('active');
+    const floodfillPanelEl = document.getElementById('floodfill-panel');
+    if (floodfillPanelEl) floodfillPanelEl.classList.remove('visible');
+    container.classList.remove('floodfill-mode');
   }
   if (!active) {
     state.isDrawing = false;

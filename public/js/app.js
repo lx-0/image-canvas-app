@@ -15,6 +15,7 @@ import { setSelectMode } from './select.js'; // Rectangular selection tool
 import { setTextMode } from './text.js'; // Text placement tool
 import { setShapeMode } from './shapes.js'; // Shape annotation tools
 import { setEyedropperMode } from './eyedropper.js'; // Eyedropper color picker
+import { setFloodFillMode } from './floodfill.js'; // Flood fill (paint bucket) tool
 import { initTransformHandles } from './transform.js'; // Resize handles
 import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
@@ -557,6 +558,7 @@ if ('serviceWorker' in navigator) {
     if (state.textMode && e.touches.length === 1) return; // text handles single-finger
     if (state.shapeMode && e.touches.length === 1) return; // shapes handle single-finger
     if (state.eyedropperMode && e.touches.length === 1) return; // eyedropper handles single-finger
+    if (state.floodFillMode && e.touches.length === 1) return; // flood fill handles single-finger
     if (e.touches.length === 2) {
       e.preventDefault();
       const t1 = e.touches[0], t2 = e.touches[1];
@@ -582,6 +584,7 @@ if ('serviceWorker' in navigator) {
     if (state.textMode && e.touches.length === 1) return; // text handles single-finger
     if (state.shapeMode && e.touches.length === 1) return; // shapes handle single-finger
     if (state.eyedropperMode && e.touches.length === 1) return; // eyedropper handles single-finger
+    if (state.floodFillMode && e.touches.length === 1) return; // flood fill handles single-finger
     if (e.touches.length === 2 && touchState.active) {
       e.preventDefault();
       const t1 = e.touches[0], t2 = e.touches[1];

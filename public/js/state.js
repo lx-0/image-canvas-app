@@ -136,6 +136,11 @@ export const state = {
   shapeType: 'rect',
   shapeFill: false,
 
+  // Flood fill tool
+  floodFillMode: false,
+  floodFillTolerance: 32,
+  floodFillAntiAlias: false,
+
   // Chat image attachments (gallery images to include in next message)
   chatAttachedImages: [],
 };

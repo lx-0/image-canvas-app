@@ -452,6 +452,41 @@ canvas {
   display: flex;
 }
 
+/* Flood fill panel */
+#floodfill-panel {
+  display: none;
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--zoom-bar-bg);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 10px;
+  padding: 10px 14px;
+  z-index: 6;
+  user-select: none;
+  gap: 12px;
+  align-items: center;
+  backdrop-filter: blur(8px);
+}
+
+#floodfill-panel.visible {
+  display: flex;
+}
+
+.floodfill-aa-label {
+  cursor: pointer;
+  gap: 6px;
+}
+
+.floodfill-aa-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+#canvas-container.floodfill-mode canvas {
+  cursor: crosshair;
+}
+
 /* Drawing panel */
 #draw-panel {
   display: none;
@@ -2026,6 +2061,13 @@ canvas {
   }
 
   #eraser-panel.visible {
+    flex-wrap: wrap;
+    bottom: 52px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  #floodfill-panel.visible {
     flex-wrap: wrap;
     bottom: 52px;
     padding: 8px 10px;

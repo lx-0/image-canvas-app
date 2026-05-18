@@ -50,6 +50,13 @@ export function setEraserMode(active) {
     const eyedropperBtnEl = document.getElementById('eyedropper-btn');
     if (eyedropperBtnEl) eyedropperBtnEl.classList.remove('active');
     container.classList.remove('eyedropper-mode');
+
+    state.floodFillMode = false;
+    const floodfillBtnEl = document.getElementById('floodfill-btn');
+    if (floodfillBtnEl) floodfillBtnEl.classList.remove('active');
+    const floodfillPanelEl = document.getElementById('floodfill-panel');
+    if (floodfillPanelEl) floodfillPanelEl.classList.remove('visible');
+    container.classList.remove('floodfill-mode');
   }
   if (!active) {
     state.isErasing = false;
