@@ -310,7 +310,7 @@ document.addEventListener('keydown', (e) => {
   }
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
     e.preventDefault();
-    saveProject();
+    openExportDialog();
     return;
   }
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'O') {
@@ -320,7 +320,7 @@ document.addEventListener('keydown', (e) => {
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
-    openExportDialog();
+    saveProject();
   }
   if (e.key === 'Escape' && exportOverlay.classList.contains('visible')) {
     closeExportDialog();

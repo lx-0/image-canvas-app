@@ -26,9 +26,9 @@
     <div id="toolbar" role="toolbar" aria-label="Editing tools">
       <button id="undo-btn" class="toolbar-btn" disabled title="Undo (Ctrl+Z)" aria-label="Undo last action (Ctrl+Z)">↩ Undo <span class="shortcut">Ctrl+Z</span></button>
       <button id="redo-btn" class="toolbar-btn" disabled title="Redo (Ctrl+Y)" aria-label="Redo last action (Ctrl+Y)">↪ Redo <span class="shortcut">Ctrl+Y</span></button>
-      <button id="save-btn" class="toolbar-btn" disabled title="Save/Download (Ctrl+S)" aria-label="Export image (Ctrl+S)">⬇ Save <span class="shortcut">Ctrl+S</span></button>
+      <button id="save-btn" class="toolbar-btn" disabled title="Export Image (Ctrl+Shift+S)" aria-label="Export image (Ctrl+Shift+S)">⬇ Export <span class="shortcut">Ctrl+⇧S</span></button>
       <span class="toolbar-separator" aria-hidden="true"></span>
-      <button id="save-project-btn" class="toolbar-btn" disabled title="Save Project (Ctrl+Shift+S)" aria-label="Save project as JSON file (Ctrl+Shift+S)">💾 Save Project <span class="shortcut">Ctrl+Shift+S</span></button>
+      <button id="save-project-btn" class="toolbar-btn" disabled title="Save Project (Ctrl+S)" aria-label="Save project as JSON file (Ctrl+S)">💾 Save Project <span class="shortcut">Ctrl+S</span></button>
       <button id="open-project-btn" class="toolbar-btn" title="Open Project (Ctrl+Shift+O)" aria-label="Open project from JSON file (Ctrl+Shift+O)">📂 Open Project <span class="shortcut">Ctrl+Shift+O</span></button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="draw-btn" class="toolbar-btn" disabled title="Freehand draw (D)" aria-label="Toggle freehand drawing mode (D)">✏ Draw <span class="shortcut">D</span></button>
@@ -297,7 +297,7 @@
         <button class="ctx-item" role="menuitem" data-action="fit" tabindex="-1">⊡ Fit to View<span class="ctx-shortcut">Ctrl+0</span></button>
         <button class="ctx-item" role="menuitem" data-action="reset" tabindex="-1">↻ Reset Zoom</button>
         <div class="ctx-separator" role="separator"></div>
-        <button class="ctx-item" role="menuitem" data-action="export" tabindex="-1">⬇ Export<span class="ctx-shortcut">Ctrl+S</span></button>
+        <button class="ctx-item" role="menuitem" data-action="export" tabindex="-1">⬇ Export<span class="ctx-shortcut">Ctrl+⇧S</span></button>
         <button class="ctx-item" role="menuitem" data-action="copy" tabindex="-1">⎘ Copy to Clipboard</button>
       </div>
     </div>
@@ -374,6 +374,37 @@
           <input type="range" id="export-quality" min="1" max="100" value="92" />
           <span class="range-value" id="quality-value">92</span>
         </div>
+      </div>
+      <div class="export-field">
+        <label for="export-resolution">Resolution</label>
+        <select id="export-resolution">
+          <option value="1">Original (1x)</option>
+          <option value="2">2x</option>
+          <option value="0.5">0.5x</option>
+          <option value="custom">Custom dimensions</option>
+        </select>
+      </div>
+      <div class="export-field" id="custom-dims-field" style="display:none;">
+        <label>Dimensions</label>
+        <div class="export-dims-row">
+          <input type="number" id="export-width" min="1" max="8000" aria-label="Export width in pixels" />
+          <span class="export-dims-x">&times;</span>
+          <input type="number" id="export-height" min="1" max="8000" aria-label="Export height in pixels" />
+          <button type="button" id="export-link-dims" class="export-link-btn active" title="Lock aspect ratio" aria-label="Lock aspect ratio" aria-pressed="true">&#x1F517;</button>
+        </div>
+      </div>
+      <div class="export-field">
+        <label>Layers</label>
+        <div class="export-toggle-row">
+          <label class="export-radio"><input type="radio" name="export-layers" value="visible" checked /> Visible layers</label>
+          <label class="export-radio"><input type="radio" name="export-layers" value="active" /> Active layer only</label>
+        </div>
+      </div>
+      <div class="export-field" id="export-dims-info" style="display:none;">
+        <span id="export-dims-label" class="export-info-text" aria-live="polite"></span>
+      </div>
+      <div class="export-field" id="export-warning-field" style="display:none;">
+        <span id="export-warning" class="export-warning" role="alert"></span>
       </div>
       <div class="export-field" id="size-estimate-field" style="display:none;">
         <span id="size-estimate" aria-live="polite"></span>
@@ -460,7 +491,8 @@
       <h2>Keyboard Shortcuts</h2>
       <div class="shortcut-row"><span class="label">Paste image</span><kbd>Ctrl+V</kbd></div>
       <div class="shortcut-row"><span class="label">Open file</span><kbd>Ctrl+O</kbd></div>
-      <div class="shortcut-row"><span class="label">Export / Save</span><kbd>Ctrl+S</kbd></div>
+      <div class="shortcut-row"><span class="label">Save project</span><kbd>Ctrl+S</kbd></div>
+      <div class="shortcut-row"><span class="label">Export image</span><kbd>Ctrl+Shift+S</kbd></div>
       <div class="shortcut-row"><span class="label">Undo</span><kbd>Ctrl+Z</kbd></div>
       <div class="shortcut-row"><span class="label">Redo</span><kbd>Ctrl+Y</kbd></div>
       <div class="shortcut-row"><span class="label">Zoom in</span><kbd>Ctrl+=</kbd></div>
@@ -486,7 +518,6 @@
       <div class="shortcut-row"><span class="label">Toggle compare</span><kbd>V</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>
-      <div class="shortcut-row"><span class="label">Save project</span><kbd>Ctrl+Shift+S</kbd></div>
       <div class="shortcut-row"><span class="label">Open project</span><kbd>Ctrl+Shift+O</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle theme</span><kbd>Ctrl+Shift+T</kbd></div>
       <div class="shortcut-row"><span class="label">Close dialog</span><kbd>Esc</kbd></div>
