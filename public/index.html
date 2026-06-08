@@ -50,6 +50,7 @@
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="filter-btn" class="toolbar-btn" disabled title="Adjust filters (F)" aria-label="Toggle filter adjustment panel (F)">◐ Filters <span class="shortcut">F</span></button>
       <button id="layers-btn" class="toolbar-btn" disabled title="Layers" aria-label="Toggle layers panel">◫ Layers</button>
+      <button id="swatches-btn" class="toolbar-btn" title="Color Swatches (K)" aria-label="Toggle color swatches panel (K)">◆ Swatches <span class="shortcut">K</span></button>
       <button id="compare-btn" class="toolbar-btn" disabled title="Compare original (V)" aria-label="Toggle before/after comparison (V)">◧ Compare <span class="shortcut">V</span></button>
     </div>
     <button id="theme-toggle" class="toolbar-btn" title="Toggle light/dark theme (Ctrl+Shift+T)" aria-label="Toggle light or dark theme">
@@ -273,6 +274,15 @@
           </div>
         </div>
         <div id="layers-list" role="list" aria-label="Layer stack"></div>
+      </div>
+      <div id="swatches-panel" aria-label="Color swatches">
+        <div id="swatches-header">
+          <span>Swatches</span>
+          <div id="swatches-actions">
+            <button id="swatch-add-btn" title="Save current color as swatch" aria-label="Save current foreground color as swatch">+</button>
+          </div>
+        </div>
+        <div id="swatches-grid" role="grid" aria-label="Saved color swatches" tabindex="0"></div>
       </div>
       <div id="magicwand-panel" aria-label="Magic wand controls">
         <div class="draw-section">
@@ -516,6 +526,7 @@
       <div class="shortcut-row"><span class="label">Apply crop</span><kbd>Enter</kbd></div>
       <div class="shortcut-row"><span class="label">Apply selection crop</span><kbd>Enter</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle compare</span><kbd>V</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle swatches</span><kbd>K</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>
       <div class="shortcut-row"><span class="label">Open project</span><kbd>Ctrl+Shift+O</kbd></div>

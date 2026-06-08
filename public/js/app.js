@@ -29,6 +29,7 @@ import { initLayersFromImage, initLayersPanel, toggleLayersPanel, compositeLayer
 import { saveProject, openProject } from './project-io.js';
 import { toggleCompare, closeCompare, isCompareOpen, updateCompareButton } from './compare.js';
 import { executeCommands } from './commands.js';
+import './swatches.js';
 
 let form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
     exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
