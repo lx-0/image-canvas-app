@@ -172,6 +172,12 @@ export const state = {
   gradientColor2: '#ffffff',
   gradientOpacity: 1.0,
 
+  // Internal selection clipboard
+  clipboardCanvas: null,
+
+  // Marching ants animation offset
+  marchingAntsOffset: 0,
+
   // Chat image attachments (gallery images to include in next message)
   chatAttachedImages: [],
 };
