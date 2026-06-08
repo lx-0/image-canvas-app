@@ -2922,8 +2922,8 @@ body.theme-transitioning *::after {
 
 .layer-item {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column;
+  gap: 2px;
   padding: 4px 6px;
   border-radius: 6px;
   cursor: pointer;
@@ -2931,6 +2931,19 @@ body.theme-transitioning *::after {
   color: var(--text-secondary);
   border: 1px solid transparent;
   margin-bottom: 2px;
+}
+
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.layer-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 22px;
 }
 
 .layer-item:hover {
@@ -2985,11 +2998,28 @@ body.theme-transitioning *::after {
 }
 
 .layer-opacity {
-  width: 40px;
+  width: 50px;
   flex-shrink: 0;
   height: 12px;
   cursor: pointer;
   accent-color: var(--accent);
+}
+
+.layer-blend-mode {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 10px;
+  padding: 1px 2px;
+  cursor: pointer;
+  outline: none;
+}
+
+.layer-blend-mode:focus {
+  border-color: var(--accent);
 }
 
 .layer-move-btns {

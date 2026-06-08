@@ -5,6 +5,22 @@ import { els, state } from './state.js';
 let _saveState = () => {};
 export function registerSaveState(fn) { _saveState = fn; }
 
+// Blend mode definitions: label → globalCompositeOperation value
+export const BLEND_MODES = [
+  { label: 'Normal', value: 'source-over' },
+  { label: 'Multiply', value: 'multiply' },
+  { label: 'Screen', value: 'screen' },
+  { label: 'Overlay', value: 'overlay' },
+  { label: 'Darken', value: 'darken' },
+  { label: 'Lighten', value: 'lighten' },
+  { label: 'Color Dodge', value: 'color-dodge' },
+  { label: 'Color Burn', value: 'color-burn' },
+  { label: 'Soft Light', value: 'soft-light' },
+  { label: 'Hard Light', value: 'hard-light' },
+  { label: 'Difference', value: 'difference' },
+  { label: 'Exclusion', value: 'exclusion' },
+];
+
 // --- Layer creation ---
 
 function createLayerObj(name, width, height) {
@@ -16,6 +32,7 @@ function createLayerObj(name, width, height) {
     name,
     visible: true,
     opacity: 1.0,
+    blendMode: 'source-over',
     canvas: cvs,
     ctx: cvs.getContext('2d'),
   };
@@ -39,9 +56,11 @@ export function compositeLayers() {
   for (const layer of state.layers) {
     if (!layer.visible) continue;
     ctx.globalAlpha = layer.opacity;
+    ctx.globalCompositeOperation = layer.blendMode || 'source-over';
     ctx.drawImage(layer.canvas, 0, 0, canvas.width, canvas.height);
   }
   ctx.globalAlpha = 1.0;
+  ctx.globalCompositeOperation = 'source-over';
 }
 
 // Get a full-resolution flattened canvas (for export)
@@ -55,9 +74,11 @@ export function getFlattenedCanvas() {
   for (const layer of state.layers) {
     if (!layer.visible) continue;
     cx.globalAlpha = layer.opacity;
+    cx.globalCompositeOperation = layer.blendMode || 'source-over';
     cx.drawImage(layer.canvas, 0, 0);
   }
   cx.globalAlpha = 1.0;
+  cx.globalCompositeOperation = 'source-over';
   return c;
 }
 
@@ -128,6 +149,7 @@ export function duplicateLayer(index) {
   const dup = createLayerObj(src.name + ' copy', src.canvas.width, src.canvas.height);
   dup.opacity = src.opacity;
   dup.visible = src.visible;
+  dup.blendMode = src.blendMode;
   dup.ctx.drawImage(src.canvas, 0, 0);
   state.layers.splice(index + 1, 0, dup);
   state.activeLayerIndex = index + 1;
@@ -145,6 +167,12 @@ export function toggleLayerVisibility(index) {
 export function setLayerOpacity(index, opacity) {
   state.layers[index].opacity = Math.max(0, Math.min(1, opacity));
   compositeLayers();
+}
+
+export function setLayerBlendMode(index, blendMode) {
+  state.layers[index].blendMode = blendMode;
+  compositeLayers();
+  _saveState();
 }
 
 export function moveLayer(fromIndex, toIndex) {
@@ -182,9 +210,11 @@ export function flattenLayers() {
   for (const layer of state.layers) {
     if (!layer.visible) continue;
     flat.ctx.globalAlpha = layer.opacity;
+    flat.ctx.globalCompositeOperation = layer.blendMode || 'source-over';
     flat.ctx.drawImage(layer.canvas, 0, 0);
   }
   flat.ctx.globalAlpha = 1.0;
+  flat.ctx.globalCompositeOperation = 'source-over';
   state.layers = [flat];
   state.activeLayerIndex = 0;
   compositeLayers();
@@ -199,6 +229,7 @@ export function serializeLayerStack() {
     name: layer.name,
     visible: layer.visible,
     opacity: layer.opacity,
+    blendMode: layer.blendMode || 'source-over',
     dataURL: layer.canvas.toDataURL('image/png'),
     width: layer.canvas.width,
     height: layer.canvas.height,
@@ -216,6 +247,7 @@ export function deserializeLayerStack(snapshot, activeIndex) {
         const layer = createLayerObj(s.name, s.width, s.height);
         layer.visible = s.visible;
         layer.opacity = s.opacity;
+        layer.blendMode = s.blendMode || 'source-over';
         layer.ctx.drawImage(img, 0, 0);
         newLayers[i] = layer;
         loaded++;
@@ -267,6 +299,10 @@ export function renderLayersPanel() {
     item.className = 'layer-item' + (isActive ? ' active' : '');
     item.dataset.index = i;
 
+    // --- Top row: visibility, thumbnail, name, move buttons ---
+    const topRow = document.createElement('div');
+    topRow.className = 'layer-row';
+
     // Visibility toggle
     const visBtn = document.createElement('button');
     visBtn.className = 'layer-vis-btn';
@@ -310,22 +346,6 @@ export function renderLayersPanel() {
       });
     });
 
-    // Opacity slider
-    const opSlider = document.createElement('input');
-    opSlider.type = 'range';
-    opSlider.className = 'layer-opacity';
-    opSlider.min = '0';
-    opSlider.max = '1';
-    opSlider.step = '0.05';
-    opSlider.value = String(layer.opacity);
-    opSlider.title = `Opacity: ${Math.round(layer.opacity * 100)}%`;
-    opSlider.setAttribute('aria-label', `${layer.name} opacity`);
-    opSlider.addEventListener('input', (e) => {
-      e.stopPropagation();
-      setLayerOpacity(i, parseFloat(opSlider.value));
-      opSlider.title = `Opacity: ${Math.round(opSlider.value * 100)}%`;
-    });
-
     // Reorder buttons
     const moveBtns = document.createElement('div');
     moveBtns.className = 'layer-move-btns';
@@ -347,14 +367,59 @@ export function renderLayersPanel() {
     moveBtns.appendChild(moveUp);
     moveBtns.appendChild(moveDown);
 
+    topRow.appendChild(visBtn);
+    topRow.appendChild(thumb);
+    topRow.appendChild(nameSpan);
+    topRow.appendChild(moveBtns);
+
+    // --- Bottom row: blend mode dropdown + opacity slider ---
+    const bottomRow = document.createElement('div');
+    bottomRow.className = 'layer-controls-row';
+
+    // Blend mode dropdown
+    const blendSelect = document.createElement('select');
+    blendSelect.className = 'layer-blend-mode';
+    blendSelect.setAttribute('aria-label', `${layer.name} blend mode`);
+    for (const mode of BLEND_MODES) {
+      const opt = document.createElement('option');
+      opt.value = mode.value;
+      opt.textContent = mode.label;
+      if ((layer.blendMode || 'source-over') === mode.value) opt.selected = true;
+      blendSelect.appendChild(opt);
+    }
+    blendSelect.addEventListener('change', (e) => {
+      e.stopPropagation();
+      setLayerBlendMode(i, blendSelect.value);
+    });
+
+    // Opacity slider
+    const opSlider = document.createElement('input');
+    opSlider.type = 'range';
+    opSlider.className = 'layer-opacity';
+    opSlider.min = '0';
+    opSlider.max = '1';
+    opSlider.step = '0.05';
+    opSlider.value = String(layer.opacity);
+    opSlider.title = `Opacity: ${Math.round(layer.opacity * 100)}%`;
+    opSlider.setAttribute('aria-label', `${layer.name} opacity`);
+    opSlider.addEventListener('input', (e) => {
+      e.stopPropagation();
+      setLayerOpacity(i, parseFloat(opSlider.value));
+      opSlider.title = `Opacity: ${Math.round(opSlider.value * 100)}%`;
+    });
+    opSlider.addEventListener('change', (e) => {
+      e.stopPropagation();
+      _saveState();
+    });
+
+    bottomRow.appendChild(blendSelect);
+    bottomRow.appendChild(opSlider);
+
     // Click to select
     item.addEventListener('click', () => setActiveLayer(i));
 
-    item.appendChild(visBtn);
-    item.appendChild(thumb);
-    item.appendChild(nameSpan);
-    item.appendChild(opSlider);
-    item.appendChild(moveBtns);
+    item.appendChild(topRow);
+    item.appendChild(bottomRow);
     list.appendChild(item);
   }
 }
