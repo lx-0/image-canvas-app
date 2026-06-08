@@ -577,6 +577,71 @@ canvas {
   cursor: crosshair;
 }
 
+#gradient-panel {
+  display: none;
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--zoom-bar-bg);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 10px;
+  padding: 10px 14px;
+  z-index: 6;
+  user-select: none;
+  gap: 12px;
+  align-items: center;
+  backdrop-filter: blur(8px);
+}
+
+#gradient-panel.visible {
+  display: flex;
+}
+
+.gradient-types {
+  display: flex;
+  gap: 4px;
+}
+
+.gradient-type-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--bg-interactive);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.gradient-type-btn:hover {
+  background: var(--bg-interactive);
+}
+
+.gradient-type-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.gradient-color-preview {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-interactive);
+  vertical-align: middle;
+}
+
+.draw-label-hint {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+#canvas-container.gradient-mode canvas {
+  cursor: crosshair;
+}
+
 /* Magic wand panel */
 #magicwand-panel {
   display: none;
@@ -2302,6 +2367,13 @@ canvas {
   }
 
   #shape-panel.visible {
+    flex-wrap: wrap;
+    bottom: 52px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  #gradient-panel.visible {
     flex-wrap: wrap;
     bottom: 52px;
     padding: 8px 10px;

@@ -85,6 +85,14 @@ export function setMagicWandMode(active) {
     const lassoBtnEl = document.getElementById('lasso-btn');
     if (lassoBtnEl) lassoBtnEl.classList.remove('active');
     container.classList.remove('lasso-mode');
+
+    state.gradientMode = false;
+    state.isGradient = false;
+    const gradientBtnEl = document.getElementById('gradient-btn');
+    if (gradientBtnEl) gradientBtnEl.classList.remove('active');
+    const gradientPanelEl = document.getElementById('gradient-panel');
+    if (gradientPanelEl) gradientPanelEl.classList.remove('visible');
+    container.classList.remove('gradient-mode');
   }
   if (!active) {
     clearWandSelection();

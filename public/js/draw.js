@@ -86,6 +86,14 @@ export function setDrawingMode(active) {
     const wandPanelEl = document.getElementById('magicwand-panel');
     if (wandPanelEl) wandPanelEl.classList.remove('visible');
     container.classList.remove('magicwand-mode');
+
+    state.gradientMode = false;
+    state.isGradient = false;
+    const gradientBtnEl = document.getElementById('gradient-btn');
+    if (gradientBtnEl) gradientBtnEl.classList.remove('active');
+    const gradientPanelEl = document.getElementById('gradient-panel');
+    if (gradientPanelEl) gradientPanelEl.classList.remove('visible');
+    container.classList.remove('gradient-mode');
   }
   if (!active) {
     state.isDrawing = false;

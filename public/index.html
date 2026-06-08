@@ -39,6 +39,7 @@
       <button id="eyedropper-btn" class="toolbar-btn" disabled title="Eyedropper (I)" aria-label="Toggle eyedropper color picker (I)">💧 Pick <span class="shortcut">I</span></button>
       <span id="eyedropper-hex" class="eyedropper-hex" aria-live="polite"></span>
       <button id="floodfill-btn" class="toolbar-btn" disabled title="Flood Fill (B)" aria-label="Toggle flood fill tool (B)">🪣 Fill <span class="shortcut">B</span></button>
+      <button id="gradient-btn" class="toolbar-btn" disabled title="Gradient (H)" aria-label="Toggle gradient tool (H)">◑ Gradient <span class="shortcut">H</span></button>
       <button id="crop-btn" class="toolbar-btn" disabled title="Crop (C)" aria-label="Toggle interactive crop tool (C)">⬔ Crop <span class="shortcut">C</span></button>
       <button id="lasso-btn" class="toolbar-btn" disabled title="Lasso Select (L)" aria-label="Toggle lasso selection tool (L)">◌ Lasso <span class="shortcut">L</span></button>
       <button id="magicwand-btn" class="toolbar-btn" disabled title="Magic Wand (W)" aria-label="Toggle magic wand selection tool (W)">✦ Wand <span class="shortcut">W</span></button>
@@ -233,6 +234,31 @@
           <label class="draw-label floodfill-aa-label" for="floodfill-antialias">Anti-alias
             <input type="checkbox" id="floodfill-antialias" aria-label="Toggle anti-alias fill edges" />
           </label>
+        </div>
+      </div>
+      <div id="gradient-panel" aria-label="Gradient controls">
+        <div class="draw-section">
+          <span class="draw-label">Type</span>
+          <div class="gradient-types">
+            <button class="gradient-type-btn active" data-type="linear" title="Linear gradient" aria-label="Linear gradient">⬌ Linear</button>
+            <button class="gradient-type-btn" data-type="radial" title="Radial gradient" aria-label="Radial gradient">◎ Radial</button>
+          </div>
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">From</span>
+          <span class="gradient-color-preview" id="gradient-color1-preview"></span>
+          <span class="draw-label-hint">(brush color)</span>
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">To</span>
+          <input type="color" id="gradient-color2" value="#ffffff" title="Secondary gradient color" aria-label="Secondary gradient color" />
+        </div>
+        <div class="draw-section">
+          <span class="draw-label">Opacity</span>
+          <div class="opacity-row">
+            <input type="range" id="gradient-opacity" min="0.1" max="1" step="0.1" value="1" aria-label="Gradient opacity" />
+            <span id="gradient-opacity-value">100%</span>
+          </div>
         </div>
       </div>
       <div id="crop-panel" aria-label="Crop controls">
@@ -521,6 +547,7 @@
       <div class="shortcut-row"><span class="label">Toggle filters</span><kbd>F</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle lasso</span><kbd>L</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle magic wand</span><kbd>W</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle gradient</span><kbd>H</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle crop</span><kbd>C</kbd></div>
       <div class="shortcut-row"><span class="label">Delete selection</span><kbd>Delete</kbd></div>
       <div class="shortcut-row"><span class="label">Apply crop</span><kbd>Enter</kbd></div>

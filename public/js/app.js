@@ -19,6 +19,7 @@ import { setFloodFillMode } from './floodfill.js'; // Flood fill (paint bucket) 
 import { setCropMode } from './crop.js'; // Interactive crop tool
 import { setLassoMode } from './lasso.js'; // Lasso selection tool
 import { setMagicWandMode } from './magicwand.js'; // Magic wand selection tool
+import { setGradientMode } from './gradient.js'; // Gradient fill tool
 import { initTransformHandles } from './transform.js'; // Resize handles
 import { openExportDialog, closeExportDialog } from './export.js';
 import { addToGallery, renderGallery } from './gallery.js';
@@ -565,6 +566,7 @@ if ('serviceWorker' in navigator) {
     if (state.cropMode && e.touches.length === 1) return; // crop handles single-finger
     if (state.lassoMode && e.touches.length === 1) return; // lasso handles single-finger
     if (state.magicWandMode && e.touches.length === 1) return; // magic wand handles single-finger
+    if (state.gradientMode && e.touches.length === 1) return; // gradient handles single-finger
     if (e.touches.length === 2) {
       e.preventDefault();
       const t1 = e.touches[0], t2 = e.touches[1];
@@ -594,6 +596,7 @@ if ('serviceWorker' in navigator) {
     if (state.cropMode && e.touches.length === 1) return; // crop handles single-finger
     if (state.lassoMode && e.touches.length === 1) return; // lasso handles single-finger
     if (state.magicWandMode && e.touches.length === 1) return; // magic wand handles single-finger
+    if (state.gradientMode && e.touches.length === 1) return; // gradient handles single-finger
     if (e.touches.length === 2 && touchState.active) {
       e.preventDefault();
       const t1 = e.touches[0], t2 = e.touches[1];

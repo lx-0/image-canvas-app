@@ -165,6 +165,13 @@ export const state = {
   wandMaskWidth: 0,
   wandMaskHeight: 0,
 
+  // Gradient tool
+  gradientMode: false,
+  isGradient: false,
+  gradientType: 'linear',
+  gradientColor2: '#ffffff',
+  gradientOpacity: 1.0,
+
   // Chat image attachments (gallery images to include in next message)
   chatAttachedImages: [],
 };
