@@ -5,6 +5,10 @@ import { els, state } from './state.js';
 let _saveState = () => {};
 export function registerSaveState(fn) { _saveState = fn; }
 
+// Post-composite hooks (overlays drawn after layer compositing)
+const _postCompositeHooks = [];
+export function registerPostComposite(fn) { _postCompositeHooks.push(fn); }
+
 // Blend mode definitions: label → globalCompositeOperation value
 export const BLEND_MODES = [
   { label: 'Normal', value: 'source-over' },
@@ -61,6 +65,7 @@ export function compositeLayers() {
   }
   ctx.globalAlpha = 1.0;
   ctx.globalCompositeOperation = 'source-over';
+  for (const hook of _postCompositeHooks) hook(ctx, canvas);
 }
 
 // Get a full-resolution flattened canvas (for export)

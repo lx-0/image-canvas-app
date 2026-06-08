@@ -32,6 +32,7 @@ import { toggleCompare, closeCompare, isCompareOpen, updateCompareButton } from 
 import { executeCommands } from './commands.js';
 import './swatches.js';
 import './clipboard.js'; // Selection clipboard operations & marching ants
+import { toggleGrid } from './grid.js'; // Grid overlay
 
 let form, fileInput, canvas, ctx, statusEl, errorEl, container, chatInput, chatMessages,
     exportOverlay, shortcutsOverlay, deleteOverlay, deleteNoBtn,
@@ -443,6 +444,12 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'v' && !isTyping && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     toggleCompare();
+    return;
+  }
+
+  if (e.key === '\'' && !isTyping && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    toggleGrid();
     return;
   }
 

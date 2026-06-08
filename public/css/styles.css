@@ -664,6 +664,52 @@ canvas {
   display: flex;
 }
 
+#grid-panel {
+  display: none;
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--zoom-bar-bg);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 10px;
+  padding: 10px 14px;
+  z-index: 6;
+  user-select: none;
+  gap: 12px;
+  align-items: center;
+  backdrop-filter: blur(8px);
+}
+
+#grid-panel.visible {
+  display: flex;
+}
+
+#grid-size-select {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+#grid-custom-size {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--bg-interactive);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+.grid-snap-label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* Drawing panel */
 #draw-panel {
   display: none;

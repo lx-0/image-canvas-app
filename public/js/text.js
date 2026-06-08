@@ -2,6 +2,7 @@
 import { els, state } from './state.js';
 import { saveState } from './canvas.js';
 import { getActiveLayer, getActiveCtx, getActiveCanvas, compositeLayers } from './layers.js';
+import { snapPointToGrid } from './grid.js';
 
 const { canvas, container, statusEl } = els;
 
@@ -281,7 +282,8 @@ function startEditing(clientX, clientY) {
   if (state.isTextEditing) {
     commitText();
   }
-  const pos = layerCoords(clientX, clientY);
+  const raw = layerCoords(clientX, clientY);
+  const pos = snapPointToGrid(raw.x, raw.y);
   _cursorX = pos.x;
   _cursorY = pos.y;
   _editingText = '';

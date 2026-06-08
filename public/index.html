@@ -52,6 +52,7 @@
       <button id="filter-btn" class="toolbar-btn" disabled title="Adjust filters (F)" aria-label="Toggle filter adjustment panel (F)">◐ Filters <span class="shortcut">F</span></button>
       <button id="layers-btn" class="toolbar-btn" disabled title="Layers" aria-label="Toggle layers panel">◫ Layers</button>
       <button id="swatches-btn" class="toolbar-btn" title="Color Swatches (K)" aria-label="Toggle color swatches panel (K)">◆ Swatches <span class="shortcut">K</span></button>
+      <button id="grid-btn" class="toolbar-btn" title="Toggle grid overlay (')" aria-label="Toggle grid overlay (')">▦ Grid <span class="shortcut">'</span></button>
       <button id="compare-btn" class="toolbar-btn" disabled title="Compare original (V)" aria-label="Toggle before/after comparison (V)">◧ Compare <span class="shortcut">V</span></button>
     </div>
     <button id="theme-toggle" class="toolbar-btn" title="Toggle light/dark theme (Ctrl+Shift+T)" aria-label="Toggle light or dark theme">
@@ -319,6 +320,24 @@
           </div>
         </div>
       </div>
+      <div id="grid-panel" aria-label="Grid controls">
+        <div class="draw-section">
+          <span class="draw-label">Size</span>
+          <select id="grid-size-select" aria-label="Grid spacing">
+            <option value="8">8 px</option>
+            <option value="16" selected>16 px</option>
+            <option value="32">32 px</option>
+            <option value="64">64 px</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input type="number" id="grid-custom-size" min="2" max="512" value="16" style="display:none;width:56px;" aria-label="Custom grid size in pixels" />
+        </div>
+        <div class="draw-section">
+          <label class="draw-label grid-snap-label" for="grid-snap-toggle">Snap
+            <input type="checkbox" id="grid-snap-toggle" aria-label="Snap to grid" />
+          </label>
+        </div>
+      </div>
       <div id="select-toolbar" aria-label="Selection actions">
         <span id="select-dims" aria-label="Selection dimensions"></span>
         <button id="select-crop-btn" aria-label="Crop to selection">Crop</button>
@@ -561,6 +580,7 @@
       <div class="shortcut-row"><span class="label">Apply selection crop</span><kbd>Enter</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle compare</span><kbd>V</kbd></div>
       <div class="shortcut-row"><span class="label">Toggle swatches</span><kbd>K</kbd></div>
+      <div class="shortcut-row"><span class="label">Toggle grid</span><kbd>'</kbd></div>
       <div class="shortcut-row"><span class="label">Focus chat</span><kbd>/</kbd></div>
       <div class="shortcut-row"><span class="label">Show shortcuts</span><kbd>?</kbd></div>
       <div class="shortcut-row"><span class="label">Open project</span><kbd>Ctrl+Shift+O</kbd></div>

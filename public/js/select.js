@@ -4,6 +4,7 @@ import { saveState, resizeAndDraw } from './canvas.js';
 import { setDrawingMode } from './draw.js';
 import { executeCrop } from './filters.js';
 import { getActiveLayer, getActiveCtx, compositeLayers } from './layers.js';
+import { snapToGrid } from './grid.js';
 
 const { canvas, ctx, container, statusEl } = els;
 
@@ -118,6 +119,21 @@ function canvasCoords(clientX, clientY) {
   return {
     x: (clientX - rect.left) / (rect.width / canvas.width),
     y: (clientY - rect.top) / (rect.height / canvas.height),
+  };
+}
+
+function snapDisplayCoord(displayVal, displaySize, docSize) {
+  const docVal = displayVal * docSize / displaySize;
+  return snapToGrid(docVal) * displaySize / docSize;
+}
+
+function snapDisplayPoint(x, y) {
+  if (!state.gridSnap || !state.gridVisible) return { x, y };
+  const docW = state.layers.length > 0 ? state.layers[0].canvas.width : canvas.width;
+  const docH = state.layers.length > 0 ? state.layers[0].canvas.height : canvas.height;
+  return {
+    x: snapDisplayCoord(x, canvas.width, docW),
+    y: snapDisplayCoord(y, canvas.height, docH),
   };
 }
 
@@ -237,7 +253,8 @@ canvas.addEventListener('touchend', (e) => {
 // --- Selection lifecycle ---
 function beginSelection(clientX, clientY) {
   state.isSelecting = true;
-  const pos = canvasCoords(clientX, clientY);
+  const raw = canvasCoords(clientX, clientY);
+  const pos = snapDisplayPoint(raw.x, raw.y);
   state.selStartX = pos.x;
   state.selStartY = pos.y;
   state.selRect = { x: pos.x, y: pos.y, w: 0, h: 0 };
@@ -246,8 +263,11 @@ function beginSelection(clientX, clientY) {
 
 function updateSelection(clientX, clientY) {
   const pos = canvasCoords(clientX, clientY);
-  const cx = Math.max(0, Math.min(canvas.width, pos.x));
-  const cy = Math.max(0, Math.min(canvas.height, pos.y));
+  let cx = Math.max(0, Math.min(canvas.width, pos.x));
+  let cy = Math.max(0, Math.min(canvas.height, pos.y));
+  const snapped = snapDisplayPoint(cx, cy);
+  cx = snapped.x;
+  cy = snapped.y;
 
   const rawW = cx - state.selStartX;
   const rawH = cy - state.selStartY;

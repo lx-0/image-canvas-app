@@ -2,6 +2,7 @@
 import { els, state } from './state.js';
 import { saveState } from './canvas.js';
 import { getActiveLayer, getActiveCtx, compositeLayers } from './layers.js';
+import { snapPointToGrid } from './grid.js';
 
 const { canvas, container, statusEl } = els;
 
@@ -199,7 +200,8 @@ canvas.addEventListener('touchend', (e) => {
 function beginShape(clientX, clientY, shiftKey) {
   state.isShaping = true;
   _shapeCtx = getActiveCtx();
-  _startPos = layerCoords(clientX, clientY);
+  const raw = layerCoords(clientX, clientY);
+  _startPos = snapPointToGrid(raw.x, raw.y);
   _shiftHeld = shiftKey;
   captureSnapshot();
 }
@@ -207,7 +209,8 @@ function beginShape(clientX, clientY, shiftKey) {
 function previewShape(clientX, clientY) {
   if (!_shapeCtx || !_startPos) return;
   restoreSnapshot();
-  const endPos = layerCoords(clientX, clientY);
+  const raw = layerCoords(clientX, clientY);
+  const endPos = snapPointToGrid(raw.x, raw.y);
   drawShape(_shapeCtx, _startPos, endPos, _shiftHeld);
   compositeLayers();
 }

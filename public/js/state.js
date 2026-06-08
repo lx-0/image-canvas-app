@@ -178,6 +178,11 @@ export const state = {
   // Marching ants animation offset
   marchingAntsOffset: 0,
 
+  // Grid overlay
+  gridVisible: false,
+  gridSize: 16,
+  gridSnap: false,
+
   // Chat image attachments (gallery images to include in next message)
   chatAttachedImages: [],
 };
